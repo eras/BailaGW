@@ -26,6 +26,8 @@ let input_area_elt = let open Eliom_content.Html5.D in input ~input_type:`Text (
 
 let bus = Eliom_bus.create Json.t<message>
 
+let irc_connection = ref None
+
 {client{
    let add_message message =
      (* let area = Eliom_content.Html5.To_dom.of_p %message_area_elt in *)
@@ -43,7 +45,13 @@ let bus = Eliom_bus.create Json.t<message>
     let _ = Eliom_bus.write bus message in
     Lwt.return ()
 
-  let send_add_message = server_function Json.t<message> add_message
+  let send_add_message = server_function Json.t<message> (
+    fun message ->
+      ( match !irc_connection with
+        | None -> Lwt.return ()
+        | Some connection -> Irc_client_lwt.Client.send_privmsg ~connection ~target:"#gb2015" ~message) >>= fun () ->
+      add_message message
+  )
 }}
 
 let backlog_service =
@@ -83,9 +91,12 @@ let () =
         add_message "Failed to create connection"
       | Some connection ->
         add_message "Connected" >>= fun () ->
+        irc_connection := Some connection;
         Irc_client_lwt.Client.listen ~connection ~callback:(
           fun ~connection ~result ->
             ( match result with
+              | Irc_message.Message { Irc_message.command = "376" } ->
+                Irc_client_lwt.Client.send_join ~connection ~channel:"#gb2015"
               | Irc_message.Message { Irc_message.prefix; command; params; trail } ->
                 Printf.ksprintf add_message "(%s) (%s) (%s)" command (String.concat "," params) (match trail with None -> "-" | Some trail -> trail)
               | Irc_message.Parse_error (_data, message) ->
