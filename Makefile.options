@@ -11,7 +11,7 @@ SERVER_FILES := $(wildcard *.eliomi *.eliom)
 CLIENT_FILES := $(wildcard *.eliomi *.eliom)
 
 # OCamlfind packages for the server
-SERVER_PACKAGES := irc-client irc-client.lwt
+SERVER_PACKAGES := irc-client irc-client.lwt sqlexpr sqlexpr.syntax containers
 # OCamlfind packages for the client
 CLIENT_PACKAGES :=
 
