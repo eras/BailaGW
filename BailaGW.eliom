@@ -54,20 +54,19 @@ let backlog_service =
 
 {client{
    let init_client () =
-     let req = XmlHttpRequest.create () in
      Lwt.async (
        fun () ->
          let e = Eliom_content.Html5.To_dom.of_input %input_area_elt in
          e##onkeydown <- Dom_html.handler (
              fun ev ->
                if ev##keyCode = 13 then
-                 ( %send_add_message (Js.to_string e##value);
+                 ( let value = Js.to_string e##value in
+                   Lwt.async (fun () -> %send_add_message value);
                    e##value <- Js.string "";
                    Js._false )
                else
                  Js._true
            );
-         let uri = make_uri ~service:%backlog_service () in
          Eliom_client.call_ocaml_service ~service:%backlog_service () () >>= fun response ->
          List.iter add_message response;
          Lwt.async (fun () -> Lwt_stream.iter add_message (Eliom_bus.stream %bus));
