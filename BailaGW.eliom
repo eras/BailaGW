@@ -22,6 +22,8 @@ let messages : messages ref = ref ["initial message"]
 
 let message_area_elt = p [pcdata "Baila baila"]
 
+let input_area_elt = let open Eliom_content.Html5.D in input ~input_type:`Text ()
+
 let bus = Eliom_bus.create Json.t<message>
 
 {client{
@@ -31,6 +33,7 @@ let bus = Eliom_bus.create Json.t<message>
      (* let () = area##innerHTML <- area##innerHTML##concat ((Js.string message)##concat (Js.string " moi ")) in *)
      let element = p [pcdata message] in
      Eliom_content.Html5.Manip.appendChild %message_area_elt element;
+     Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
      ()
 }}
 
@@ -39,6 +42,8 @@ let bus = Eliom_bus.create Json.t<message>
     messages := !messages @ [message];
     let _ = Eliom_bus.write bus message in
     Lwt.return ()
+
+  let send_add_message = server_function Json.t<message> add_message
 }}
 
 let backlog_service =
@@ -49,11 +54,21 @@ let backlog_service =
 
 {client{
    let init_client () =
-     let uri = make_uri ~service:%backlog_service () in
      let req = XmlHttpRequest.create () in
      Lwt.async (
        fun () ->
-         Lwt.bind (Eliom_client.call_ocaml_service ~service:%backlog_service () ()) @@ fun response ->
+         let e = Eliom_content.Html5.To_dom.of_input %input_area_elt in
+         e##onkeydown <- Dom_html.handler (
+             fun ev ->
+               if ev##keyCode = 13 then
+                 ( %send_add_message (Js.to_string e##value);
+                   e##value <- Js.string "";
+                   Js._false )
+               else
+                 Js._true
+           );
+         let uri = make_uri ~service:%backlog_service () in
+         Eliom_client.call_ocaml_service ~service:%backlog_service () () >>= fun response ->
          List.iter add_message response;
          Lwt.async (fun () -> Lwt_stream.iter add_message (Eliom_bus.stream %bus));
          Lwt.return ()
@@ -91,6 +106,7 @@ let () =
             ~css:[["css";"BailaGW.css"]]
             Html5.F.(body [
                 message_area_elt;
+                input_area_elt;
               ]
               )
          )
