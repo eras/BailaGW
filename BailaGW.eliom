@@ -29,7 +29,7 @@ let messages : messages ref = ref []
 
 let message_area_elt = p [pcdata "Baila baila"]
 
-let input_area_elt = Eliom_content.Html5.D.(input ~input_type:`Text ~a:[a_size 100] ())
+let input_area_elt = Eliom_content.Html5.D.Raw.(textarea ~a:[a_maxlength 1000] (pcdata ""))
 
 let bus = Eliom_bus.create Json.t<message>
 
@@ -105,7 +105,7 @@ let backlog_service =
    let init_client () =
      Lwt.async (
        fun () ->
-         let e = Eliom_content.Html5.To_dom.of_input %input_area_elt in
+         let e = Eliom_content.Html5.To_dom.of_textarea %input_area_elt in
          e##onkeydown <- Dom_html.handler (
              fun ev ->
                if ev##keyCode = 13 then
