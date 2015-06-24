@@ -10,7 +10,7 @@ SERVER_FILES := $(wildcard *.eliomi *.eliom)
 # Source files for the client
 CLIENT_FILES := $(wildcard *.eliomi *.eliom)
 
-# OCamlfind packages for the server
+# OCamlfind packages for the server pcre
 SERVER_PACKAGES := irc-client irc-client.lwt sqlexpr sqlexpr.syntax containers
 # OCamlfind packages for the client
 CLIENT_PACKAGES :=

@@ -96,7 +96,14 @@ let db_add_message message =
       ( match !irc_connection with
         | None -> Lwt.return ()
         | Some connection ->
-          Irc_client_lwt.Client.send_privmsg ~connection ~target:message.dst ~message:(message.src ^ "> " ^ message.message)
+          Lwt.catch (
+            fun () ->
+              Irc_client_lwt.Client.send_privmsg ~connection ~target:message.dst ~message:(message.src ^ "> " ^ message.message)
+          )
+            (function exn ->
+              Printf.eprintf "Problem writing to socket: %s\n%!" (Printexc.to_string exn);
+              Lwt.return ()
+            )
       ) >>= fun () ->
       db_add_message message >>= add_message
   )
@@ -167,13 +174,28 @@ let () =
       let rec loop () =
         let cur_nick = ref nick in
         Printf.eprintf "Conencting..\n%!";
-        ( Irc_client_lwt.Client.connect_by_name ~server:"jeti" ~port:6667 ~username:"BailaGW" ~mode:0 ~realname:"BailaGW" ~nick:!cur_nick () >>= fun response ->
+        ( Lwt.catch (
+            fun () ->
+              Irc_client_lwt.Client.connect_by_name ~server:"jeti" ~port:6667 ~username:"BailaGW" ~mode:0 ~realname:"BailaGW" ~nick:!cur_nick () >>= fun c ->
+              Lwt.return (`Connection c)
+            )
+              (function
+(* ocsigenserver: main: Uncaught Exception: Unix.Unix_error(Unix.ECONNREFUSED, "connect", "") *)
+                | Unix.Unix_error (_, _, _) ->
+                  Printf.eprintf "Failed to connect irc server..\n%!";
+                  Lwt.return `Reconnect
+                | exn ->
+                  Printf.printf "Problem :( %s\n%!" (Printexc.to_string exn);
+                  Lwt.return `Reconnect
+              )
+          >>= fun response ->
           match response with
-          | None ->
-            Printf.eprintf "Nopes..\n%!";
+          | `Reconnect ->
+            Lwt_unix.sleep 10.0
+          | `Connection None ->
+            Printf.eprintf "Failed to get connection\n%!";
             add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Failed to create connection" }
-          | Some connection ->
-            Printf.eprintf "Yes..\n%!";
+          | `Connection (Some connection) ->
             (* add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Connected" } >>= fun () -> *)
             irc_connection := Some connection;
             Irc_client_lwt.Client.listen ~connection ~callback:(
@@ -191,9 +213,12 @@ let () =
                   Printf.eprintf "(%s) (%s) (%s) (%s)\n%!" (match prefix with None -> "-" | Some x -> x) command (String.concat "," params) (match trail with None -> "-" | Some trail -> trail);
                   Lwt.return ()
                 | Irc_message.Parse_error (_data, message) ->
+                  Printf.eprintf "Parse error.. %s\n%!" message;
                   add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Error in response: " ^ message }
-            ) ) >>= loop
+            )
+        ) >>= loop
       in
+      irc_connection := None;
       loop ()
   )
 
