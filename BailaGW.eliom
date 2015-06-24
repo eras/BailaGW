@@ -67,7 +67,11 @@ let message_db =
      (* let area = Eliom_content.Html5.To_dom.of_p %message_area_elt in *)
      (* let () = area##innerHTML##appendData (Js.string message) in *)
      (* let () = area##innerHTML <- area##innerHTML##concat ((Js.string message)##concat (Js.string " moi ")) in *)
-     let element = p [Printf.ksprintf pcdata "%s %s->%s %s" message.timestamp message.src message.dst message.message] in
+     let element =
+       div ~a:[a_class ["message"]]
+         [span ~a:[a_class ["src"]] [pcdata message.src];
+          span ~a:[a_class ["timestamp"]] [pcdata message.timestamp];
+          span ~a:[a_class ["text"]] [pcdata message.message]] in
      Eliom_content.Html5.Manip.appendChild %message_area_elt element;
      Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
      ()
