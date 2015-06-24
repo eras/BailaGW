@@ -41,7 +41,7 @@ let message_area_elt =
 let input_area_elt =
   Eliom_content.Html5.D.Raw.(textarea ~a:[a_id "input_area"; a_maxlength 1000; a_style "display: none"] (pcdata ""))
 
-let bus = Eliom_bus.create Json.t<message>
+let bus = Eliom_bus.create ~name:"messages" Json.t<message>
 
 let irc_connection = ref None
 
@@ -84,7 +84,7 @@ let db_add_message message =
     let _ = Eliom_bus.write bus message in
     Lwt.return ()
 
-  let send_add_message = server_function Json.t<message> (
+  let send_add_message = server_function ~name:"send_add_message" Json.t<message> (
     fun (message : message) ->
       ( match !irc_connection with
         | None -> Lwt.return ()
