@@ -29,7 +29,7 @@ let messages : messages ref = ref []
 
 let message_area_elt = p [pcdata "Baila baila"]
 
-let input_area_elt = let open Eliom_content.Html5.D in input ~input_type:`Text ()
+let input_area_elt = Eliom_content.Html5.D.(input ~input_type:`Text ~a:[a_size 100] ())
 
 let bus = Eliom_bus.create Json.t<message>
 
