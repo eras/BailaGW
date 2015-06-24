@@ -5,6 +5,9 @@ open Html5.D
 
 type timestamp = string deriving (Json)
 
+let nick = "BailaGW"
+let channel = "#gb2015";
+
 type message = {
   timestamp : timestamp;
   src     : string;
@@ -123,7 +126,7 @@ let backlog_service =
          fun ev ->
            if ev##keyCode = 13 then
              ( let value = Js.to_string input_area##value in
-               Lwt.async (fun () -> %send_add_message { timestamp = "now"; src = "BailaGW/" ^ nick; dst = "#gb2015"; message = value });
+               Lwt.async (fun () -> %send_add_message { timestamp = "now"; src = "BailaGW/" ^ nick; dst = channel; message = value });
                input_area##value <- Js.string "";
                Js._false )
            else
@@ -161,27 +164,37 @@ let backlog_service =
 let () =
   Lwt.async (
     fun () ->
-      Lwt.bind (Irc_client_lwt.Client.connect_by_name ~server:"jeti" ~port:6667 ~username:"flux" ~mode:0 ~realname:"flux" ~nick:"flux" ()) @@ fun response ->
-      match response with
-      | None ->
-        add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Failed to create connection" }
-      | Some connection ->
-        (* add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Connected" } >>= fun () -> *)
-        irc_connection := Some connection;
-        Irc_client_lwt.Client.listen ~connection ~callback:(
-          fun ~connection ~result ->
-            match result with
-            | Irc_message.Message { Irc_message.command = "376" } ->
-              Irc_client_lwt.Client.send_join ~connection ~channel:"#gb2015"
-            | Irc_message.Message { Irc_message.prefix = Some prefix; command = "PRIVMSG"; params = channel::_; trail = Some trail } ->
-              let message = { timestamp = "now"; src = prefix; dst = channel; message = trail } in
-              db_add_message message >>= add_message
-            | Irc_message.Message { Irc_message.prefix; command; params; trail } ->
-              (* Printf.ksprintf add_message "(%s) (%s) (%s) (%s)" (match prefix with None -> "-" | Some x -> x) command (String.concat "," params) (match trail with None -> "-" | Some trail -> trail) *)
-              Lwt.return ()
-            | Irc_message.Parse_error (_data, message) ->
-              add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Error in response: " ^ message }
-        )
+      let rec loop () =
+        let cur_nick = ref nick in
+        Printf.eprintf "Conencting..\n%!";
+        ( Irc_client_lwt.Client.connect_by_name ~server:"jeti" ~port:6667 ~username:"BailaGW" ~mode:0 ~realname:"BailaGW" ~nick:!cur_nick () >>= fun response ->
+          match response with
+          | None ->
+            Printf.eprintf "Nopes..\n%!";
+            add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Failed to create connection" }
+          | Some connection ->
+            Printf.eprintf "Yes..\n%!";
+            (* add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Connected" } >>= fun () -> *)
+            irc_connection := Some connection;
+            Irc_client_lwt.Client.listen ~connection ~callback:(
+              fun ~connection ~result ->
+                match result with
+                | Irc_message.Message { Irc_message.command = "376" } ->
+                  Irc_client_lwt.Client.send_join ~connection ~channel:channel
+                | Irc_message.Message { Irc_message.command = "433" } ->
+                  cur_nick := !cur_nick ^ "_";
+                  Irc_client_lwt.Client.send_nick ~connection ~nick:!cur_nick
+                | Irc_message.Message { Irc_message.prefix = Some prefix; command = "PRIVMSG"; params = channel::_; trail = Some trail } ->
+                  let message = { timestamp = "now"; src = prefix; dst = channel; message = trail } in
+                  db_add_message message >>= add_message
+                | Irc_message.Message { Irc_message.prefix; command; params; trail } ->
+                  Printf.eprintf "(%s) (%s) (%s) (%s)\n%!" (match prefix with None -> "-" | Some x -> x) command (String.concat "," params) (match trail with None -> "-" | Some trail -> trail);
+                  Lwt.return ()
+                | Irc_message.Parse_error (_data, message) ->
+                  add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Error in response: " ^ message }
+            ) ) >>= loop
+      in
+      loop ()
   )
 
 let () =
