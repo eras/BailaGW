@@ -27,9 +27,9 @@ open Eliom_content.Html5.D (* provides functions to create HTML nodes *)
 
 let messages : messages ref = ref []
 
-let message_area_elt = p [pcdata "Baila baila"]
+let message_area_elt = p ~a:[a_id "message_area"] [pcdata "Baila baila"]
 
-let input_area_elt = Eliom_content.Html5.D.Raw.(textarea ~a:[a_maxlength 1000] (pcdata ""))
+let input_area_elt = Eliom_content.Html5.D.Raw.(textarea ~a:[a_id "input_area"; a_maxlength 1000] (pcdata ""))
 
 let bus = Eliom_bus.create Json.t<message>
 
