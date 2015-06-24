@@ -21,7 +21,7 @@ module BailaGW_app =
     end)
 
 let main_service =
-  Eliom_service.App.service ~path:["BailaGW"] ~get_params:Eliom_parameter.unit ()
+  Eliom_service.App.service ~path:["BailaGW"; ""] ~get_params:Eliom_parameter.unit ()
 
 open Eliom_content.Html5.D (* provides functions to create HTML nodes *)
 
@@ -107,7 +107,7 @@ let () =
 
 let backlog_service =
   Eliom_registration.Ocaml.register_service
-    ~path:["backlog"]
+    ~path:["BailaGW"; "backlog"]
     ~get_params:Eliom_parameter.unit
     (fun () () -> Lwt.return (!messages))
 
