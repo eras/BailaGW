@@ -27,9 +27,19 @@ open Eliom_content.Html5.D (* provides functions to create HTML nodes *)
 
 let messages : messages ref = ref []
 
-let message_area_elt = p ~a:[a_id "message_area"] [pcdata "Baila baila"]
+let login_elt, login_input_elt =
+  let login_input_elt = input ~input_type:`Text () in
+  let login_elt =
+    div ~a:[a_id "login"; a_style "display: none"]
+      [p [pcdata "millä nimellä kuljet?"]; login_input_elt]
+  in
+  login_elt, login_input_elt
+    
+let message_area_elt =
+  div ~a:[a_id "message_area"; a_style "display: none"] [pcdata "Baila baila"]
 
-let input_area_elt = Eliom_content.Html5.D.Raw.(textarea ~a:[a_id "input_area"; a_maxlength 1000] (pcdata ""))
+let input_area_elt =
+  Eliom_content.Html5.D.Raw.(textarea ~a:[a_id "input_area"; a_maxlength 1000; a_style "display: none"] (pcdata ""))
 
 let bus = Eliom_bus.create Json.t<message>
 
@@ -79,7 +89,7 @@ let db_add_message message =
       ( match !irc_connection with
         | None -> Lwt.return ()
         | Some connection ->
-          Irc_client_lwt.Client.send_privmsg ~connection ~target:message.dst ~message:message.message
+          Irc_client_lwt.Client.send_privmsg ~connection ~target:message.dst ~message:(message.src ^ "> " ^ message.message)
       ) >>= fun () ->
       db_add_message message >>= add_message
   )
@@ -102,24 +112,45 @@ let backlog_service =
     (fun () () -> Lwt.return (!messages))
 
 {client{
+   let start_backlog nick =
+     let input_area = Eliom_content.Html5.To_dom.of_textarea %input_area_elt in
+     input_area##style##display <- Js.string "block";
+     input_area##onkeydown <- Dom_html.handler (
+         fun ev ->
+           if ev##keyCode = 13 then
+             ( let value = Js.to_string input_area##value in
+               Lwt.async (fun () -> %send_add_message { timestamp = "now"; src = "BailaGW/" ^ nick; dst = "#gb2015"; message = value });
+               input_area##value <- Js.string "";
+               Js._false )
+           else
+             Js._true
+       );
+     Eliom_client.call_ocaml_service ~service:%backlog_service () () >>= fun response ->
+     (Eliom_content.Html5.To_dom.of_div %message_area_elt)##style##display <- Js.string "block";
+     List.iter add_message response;
+     Lwt.async (fun () -> Lwt_stream.iter add_message (Eliom_bus.stream %bus));
+     Lwt.return ()
+
+    let query_nick continue =
+      let nick_box = (Eliom_content.Html5.To_dom.of_div %login_elt) in
+      let nick_input = (Eliom_content.Html5.To_dom.of_input %login_input_elt) in
+      nick_box##style##display <- Js.string "block";
+      nick_input##onkeydown <- Dom_html.handler (
+          fun ev ->
+            if ev##keyCode = 13 then
+              ( let value = Js.to_string nick_input##value in
+                nick_box##style##display <- Js.string "none";
+                Lwt.async (fun () -> continue value);
+                Js._false )
+            else
+              Js._true
+        );
+      Lwt.return ()
+        
    let init_client () =
      Lwt.async (
        fun () ->
-         let e = Eliom_content.Html5.To_dom.of_textarea %input_area_elt in
-         e##onkeydown <- Dom_html.handler (
-             fun ev ->
-               if ev##keyCode = 13 then
-                 ( let value = Js.to_string e##value in
-                   Lwt.async (fun () -> %send_add_message { timestamp = "now"; src = "BailaGW"; dst = "#gb2015"; message = value });
-                   e##value <- Js.string "";
-                   Js._false )
-               else
-                 Js._true
-           );
-         Eliom_client.call_ocaml_service ~service:%backlog_service () () >>= fun response ->
-         List.iter add_message response;
-         Lwt.async (fun () -> Lwt_stream.iter add_message (Eliom_bus.stream %bus));
-         Lwt.return ()
+         query_nick start_backlog
      )
 }}
 
@@ -159,6 +190,7 @@ let () =
             ~title:"BailaGW"
             ~css:[["css";"BailaGW.css"]]
             Html5.F.(body [
+                login_elt;
                 message_area_elt;
                 input_area_elt;
               ]
