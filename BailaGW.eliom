@@ -63,6 +63,11 @@ let message_db =
      ()
 }}
 
+let db_add_message message =
+  S.execute message_db sql"INSERT INTO message(src, dst, str) VALUES (%s, %s, %s)" message.src message.dst message.message >>= fun () ->
+  S.select_one message_db sql"SELECT @s{datetime(timestamp, 'localtime')} FROM message WHERE message = last_insert_rowid()" >>= fun timestamp ->
+  Lwt.return { message with timestamp = timestamp }
+
 {server{
   let add_message message =
     messages := !messages @ [message];
@@ -76,9 +81,7 @@ let message_db =
         | Some connection ->
           Irc_client_lwt.Client.send_privmsg ~connection ~target:message.dst ~message:message.message
       ) >>= fun () ->
-      S.execute message_db sql"INSERT INTO message(src, dst, str) VALUES (%s, %s, %s)" message.src message.dst message.message >>= fun () ->
-      S.select_one message_db sql"SELECT @s{timestamp} FROM message WHERE message = last_insert_rowid()" >>= fun timestamp ->
-      add_message { message with timestamp = timestamp }
+      db_add_message message >>= add_message
   )
 }}
 
@@ -89,7 +92,7 @@ let () =
         (fun (timestamp, src, dst, message) ->
            add_message { timestamp; src; dst; message }
         )
-        sql"SELECT @s{timestamp}, @s{src}, @s{dst}, @s{str} FROM message ORDER BY timestamp"
+        sql"SELECT @s{datetime(timestamp, 'localtime')}, @s{src}, @s{dst}, @s{str} FROM message ORDER BY timestamp"
   )
 
 let backlog_service =
@@ -136,10 +139,8 @@ let () =
             | Irc_message.Message { Irc_message.command = "376" } ->
               Irc_client_lwt.Client.send_join ~connection ~channel:"#gb2015"
             | Irc_message.Message { Irc_message.prefix = Some prefix; command = "PRIVMSG"; params = channel::_; trail = Some trail } ->
-              ( S.execute message_db sql"INSERT INTO message(src, dst, str) VALUES (%s, %s, %s)" prefix channel trail >>= fun () ->
-                S.select_one message_db sql"SELECT @s{timestamp} FROM message WHERE message = last_insert_rowid()" >>= fun timestamp ->
-                add_message { timestamp; src = prefix; dst = channel; message = trail }
-              )
+              let message = { timestamp = "now"; src = prefix; dst = channel; message = trail } in
+              db_add_message message >>= add_message
             | Irc_message.Message { Irc_message.prefix; command; params; trail } ->
               (* Printf.ksprintf add_message "(%s) (%s) (%s) (%s)" (match prefix with None -> "-" | Some x -> x) command (String.concat "," params) (match trail with None -> "-" | Some trail -> trail) *)
               Lwt.return ()
