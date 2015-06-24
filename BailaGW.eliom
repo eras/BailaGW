@@ -6,7 +6,7 @@ open Html5.D
 type timestamp = string deriving (Json)
 
 let nick = "BailaGW"
-let channel = "#gb2015";
+let channel = "#gb2015"
 
 type message = {
   timestamp : timestamp;
