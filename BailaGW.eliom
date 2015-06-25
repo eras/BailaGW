@@ -203,7 +203,7 @@ let () =
                 match result with
                 | Irc_message.Message { Irc_message.command = "376" } ->
                   Irc_client_lwt.Client.send_join ~connection ~channel:channel
-                | Irc_message.Message { Irc_message.command = "433" } ->
+                | Irc_message.Message { Irc_message.command = "433" | "437" } ->
                   cur_nick := !cur_nick ^ "_";
                   Irc_client_lwt.Client.send_nick ~connection ~nick:!cur_nick
                 | Irc_message.Message { Irc_message.prefix = Some prefix; command = "PRIVMSG"; params = channel::_; trail = Some trail } ->
