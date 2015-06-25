@@ -6,14 +6,14 @@
 PROJECT_NAME := BailaGW
 
 # Source files for the server
-SERVER_FILES := $(wildcard *.eliomi *.eliom)
+SERVER_FILES := $(wildcard *.eliomi *.eliom) urls.ml
 # Source files for the client
 CLIENT_FILES := $(wildcard *.eliomi *.eliom)
 
 # OCamlfind packages for the server pcre
-SERVER_PACKAGES := irc-client irc-client.lwt sqlexpr sqlexpr.syntax containers
+SERVER_PACKAGES := irc-client irc-client.lwt sqlexpr sqlexpr.syntax containers ucorelib
 # OCamlfind packages for the client
-CLIENT_PACKAGES :=
+CLIENT_PACKAGES := ucorelib
 
 # Directory with files to be statically served
 LOCAL_STATIC = static
