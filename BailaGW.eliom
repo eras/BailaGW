@@ -264,7 +264,8 @@ let () =
             Lwt_unix.sleep 10.0
           | `Connection None ->
             Printf.eprintf "Failed to get connection\n%!";
-            add_message { timestamp = "now"; src = "BailaGW"; dst = ""; text = "Failed to create connection" }
+            add_message { timestamp = "now"; src = "BailaGW"; dst = ""; text = "Failed to create connection" } >>= fun () ->
+            Lwt_unix.sleep 10.0
           | `Connection (Some connection) ->
             (* add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Connected" } >>= fun () -> *)
             irc_connection := Some connection;
