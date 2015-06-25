@@ -6,6 +6,14 @@ body {
     font-family: sans-serif;
 }
 
+#login p {
+    font-size: 3em;
+}
+
+#login input {
+    font-size: 3em;
+}
+
 .message {
     margin-left: 1em;
     display: block;
