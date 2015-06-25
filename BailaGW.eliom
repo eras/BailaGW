@@ -130,6 +130,24 @@ let db_add_message message =
   S.select_one message_db sql"SELECT @s{datetime(timestamp, 'localtime')} FROM message WHERE message = last_insert_rowid()" >>= fun timestamp ->
   Lwt.return { message with timestamp = timestamp }
 
+let config =
+  let select_one_opt key = 
+    S.select message_db sql"SELECT @s{value} FROM config WHERE key = %s" key >>= function
+      | value::[] -> Lwt.return value
+      | _ -> Lwt.fail (Invalid_argument ("Missing configuration key " ^ key))
+  in
+  Lwt_unix.run (
+    select_one_opt "nick"       >>= fun c_nick ->
+    select_one_opt "username"   >>= fun c_username ->
+    select_one_opt "realname"   >>= fun c_realname ->
+    select_one_opt "channel"    >>= fun c_channel ->
+    select_one_opt "irc_server" >>= fun c_irc_server ->
+    select_one_opt "irc_port"   >>= fun c_irc_port ->
+    Lwt.return { c_nick; c_username; c_realname;
+                 c_channel;
+                 c_irc_server; c_irc_port = int_of_string c_irc_port }
+  )
+
 {server{
   let add_message (message : message) =
     messages := !messages @ [message];
@@ -143,6 +161,7 @@ let db_add_message message =
         | Some connection ->
           Lwt.catch (
             fun () ->
+              assert (message.dst = config.c_channel);
               Irc_client_lwt.send_privmsg ~connection ~target:message.dst ~message:(message.src ^ "> " ^ message.text)
           )
             (function exn ->
@@ -212,24 +231,6 @@ let backlog_service =
          query_nick (start_backlog channel)
      )
 }}
-
-let config =
-  let select_one_opt key = 
-    S.select message_db sql"SELECT @s{value} FROM config WHERE key = %s" key >>= function
-      | value::[] -> Lwt.return value
-      | _ -> Lwt.fail (Invalid_argument ("Missing configuration key " ^ key))
-  in
-  Lwt_unix.run (
-    select_one_opt "nick"       >>= fun c_nick ->
-    select_one_opt "username"   >>= fun c_username ->
-    select_one_opt "realname"   >>= fun c_realname ->
-    select_one_opt "channel"    >>= fun c_channel ->
-    select_one_opt "irc_server" >>= fun c_irc_server ->
-    select_one_opt "irc_port"   >>= fun c_irc_port ->
-    Lwt.return { c_nick; c_username; c_realname;
-                 c_channel;
-                 c_irc_server; c_irc_port = int_of_string c_irc_port }
-  )
 
 let () =
   Lwt.async (
