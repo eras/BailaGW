@@ -97,7 +97,6 @@ let message_db =
 
 {client{
    let message_with_urls processed =
-     Firebug.console##debug (Js.string processed.pm_message.text);
      let text = processed.pm_message.text in
      let rec scan offset urls =
        match urls with
