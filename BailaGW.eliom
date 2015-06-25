@@ -98,7 +98,7 @@ let db_add_message message =
         | Some connection ->
           Lwt.catch (
             fun () ->
-              Irc_client_lwt.Client.send_privmsg ~connection ~target:message.dst ~message:(message.src ^ "> " ^ message.message)
+              Irc_client_lwt.send_privmsg ~connection ~target:message.dst ~message:(message.src ^ "> " ^ message.message)
           )
             (function exn ->
               Printf.eprintf "Problem writing to socket: %s\n%!" (Printexc.to_string exn);
@@ -176,7 +176,7 @@ let () =
         Printf.eprintf "Conencting..\n%!";
         ( Lwt.catch (
             fun () ->
-              Irc_client_lwt.Client.connect_by_name ~server:"jeti" ~port:6667 ~username:"BailaGW" ~mode:0 ~realname:"BailaGW" ~nick:!cur_nick () >>= fun c ->
+              Irc_client_lwt.connect_by_name ~server:"jeti" ~port:6667 ~username:"BailaGW" ~mode:0 ~realname:"BailaGW" ~nick:!cur_nick () >>= fun c ->
               Lwt.return (`Connection c)
             )
               (function
@@ -198,23 +198,42 @@ let () =
           | `Connection (Some connection) ->
             (* add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Connected" } >>= fun () -> *)
             irc_connection := Some connection;
-            Irc_client_lwt.Client.listen ~connection ~callback:(
-              fun ~connection ~result ->
+            Irc_client_lwt.listen ~connection ~callback:(
+              fun connection result ->
+                let open Irc_message in
                 match result with
-                | Irc_message.Message { Irc_message.command = "376" } ->
-                  Irc_client_lwt.Client.send_join ~connection ~channel:channel
-                | Irc_message.Message { Irc_message.command = "433" | "437" } ->
+                | `Ok { command = Other "376" } ->
+                  Irc_client_lwt.send_join ~connection ~channel:channel
+                | `Ok { command = Other ("433" | "437") } ->
                   cur_nick := !cur_nick ^ "_";
-                  Irc_client_lwt.Client.send_nick ~connection ~nick:!cur_nick
-                | Irc_message.Message { Irc_message.prefix = Some prefix; command = "PRIVMSG"; params = channel::_; trail = Some trail } ->
-                  let message = { timestamp = "now"; src = prefix; dst = channel; message = trail } in
+                  Irc_client_lwt.send_nick ~connection ~nick:!cur_nick
+                | `Ok { prefix; command = PRIVMSG (dst, message) } ->
+                  let message = { timestamp = "now"; src = CCOpt.get "" prefix; dst; message } in
                   db_add_message message >>= add_message
-                | Irc_message.Message { Irc_message.prefix; command; params; trail } ->
-                  Printf.eprintf "(%s) (%s) (%s) (%s)\n%!" (match prefix with None -> "-" | Some x -> x) command (String.concat "," params) (match trail with None -> "-" | Some trail -> trail);
+                | `Ok ({ command = PASS _   } as t)
+                | `Ok ({ command = NICK _   } as t)
+                | `Ok ({ command = USER _   } as t)
+                | `Ok ({ command = OPER _   } as t)
+                | `Ok ({ command = MODE _   } as t)
+                | `Ok ({ command = QUIT _   } as t)
+                | `Ok ({ command = SQUIT _  } as t)
+                | `Ok ({ command = JOIN _   } as t)
+                | `Ok ({ command = JOIN0    } as t)
+                | `Ok ({ command = PART _   } as t)
+                | `Ok ({ command = TOPIC _  } as t)
+                | `Ok ({ command = NAMES _  } as t)
+                | `Ok ({ command = LIST _   } as t)
+                | `Ok ({ command = INVITE _ } as t)
+                | `Ok ({ command = KICK _   } as t)
+                | `Ok ({ command = NOTICE _ } as t)
+                | `Ok ({ command = PING _   } as t)
+                | `Ok ({ command = PONG _   } as t)
+                | `Ok ({ command = Other _  } as t) ->
+                  Printf.eprintf "%s\n%!" (to_string t);
                   Lwt.return ()
-                | Irc_message.Parse_error (_data, message) ->
-                  Printf.eprintf "Parse error.. %s\n%!" message;
-                  add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Error in response: " ^ message }
+                | `Error error ->
+                  Printf.eprintf "error: %s\n%!" error;
+                  Lwt.return ()
             )
         ) >>= loop
       in
