@@ -97,17 +97,17 @@ let message_db =
 
 {client{
    let message_with_urls processed =
-     let text = UText.of_string processed.pm_message.text in
-     let pc_utf8 x = UText.to_string x |> pcdata in
+     Firebug.console##debug (Js.string processed.pm_message.text);
+     let text = processed.pm_message.text in
      let rec scan offset urls =
        match urls with
        | [] ->
-         [pc_utf8 (UText.sub text offset (UText.length text - offset))]
+         [pcdata (String.sub text offset (String.length text - offset))]
        | ((ofs, len), url)::rest when ofs = offset ->
          Raw.a ~a:[a_href url; a_target "_new"] [pcdata url]::scan (ofs + len) rest
        | (((ofs, _ofs1), _url)::_) as urls ->
          assert (ofs > offset);
-         pc_utf8 (UText.sub text offset (ofs - offset))::scan ofs urls
+         pcdata (String.sub text offset (ofs - offset))::scan ofs urls
      in
      scan 0 processed.pm_urls
 
