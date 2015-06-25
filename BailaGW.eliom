@@ -320,7 +320,7 @@ let () =
        Lwt.return
          (Eliom_tools.F.html
             ~title:"BailaGW"
-            ~css:[["css";"BailaGW.css"]]
+            ~css:[["BailaGW"; "css";"BailaGW.css"]]
             Html5.F.(body [
                 login_elt;
                 message_area_elt;
