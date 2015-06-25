@@ -8,8 +8,14 @@ type timestamp = string deriving (Json)
 module UTF8 = UCoreLib.UTF8
 module UText = UCoreLib.Text
 
-let nick = "BailaGW"
-let channel = "#gb2015"
+type config = {
+  c_nick       : string;
+  c_username   : string;
+  c_realname   : string;
+  c_channel    : string;
+  c_irc_server : string;
+  c_irc_port   : int;
+}
 
 type message = {
   timestamp : timestamp;
@@ -80,7 +86,13 @@ let message_db =
               src TEXT NOT NULL,
               dst TEXT NOT NULL,
               str TEXT NOT NULL
-            );"  );
+            );" >>= fun () ->
+      S.execute db
+        sqlinit"CREATE TABLE IF NOT EXISTS config(
+              key TEXT NOT NULL,
+              value TEXT NOT NULL
+            );"
+  );
   db
 
 {client{
@@ -160,7 +172,7 @@ let backlog_service =
     (fun () () -> Lwt.return (List.map process_message !messages))
 
 {client{
-   let start_backlog nick =
+   let start_backlog channel nick =
      let input_area = Eliom_content.Html5.To_dom.of_textarea %input_area_elt in
      input_area##style##display <- Js.string "block";
      input_area##onkeydown <- Dom_html.handler (
@@ -195,22 +207,46 @@ let backlog_service =
         );
       Lwt.return ()
         
-   let init_client () =
+   let init_client channel =
      Lwt.async (
        fun () ->
-         query_nick start_backlog
+         query_nick (start_backlog channel)
      )
 }}
+
+let config =
+  let select_one_opt key = 
+    S.select message_db sql"SELECT @s{value} FROM config WHERE key = %s" key >>= function
+      | value::[] -> Lwt.return value
+      | _ -> Lwt.fail (Invalid_argument ("Missing configuration key " ^ key))
+  in
+  Lwt_unix.run (
+    select_one_opt "nick"       >>= fun c_nick ->
+    select_one_opt "username"   >>= fun c_username ->
+    select_one_opt "realname"   >>= fun c_realname ->
+    select_one_opt "channel"    >>= fun c_channel ->
+    select_one_opt "irc_server" >>= fun c_irc_server ->
+    select_one_opt "irc_port"   >>= fun c_irc_port ->
+    Lwt.return { c_nick; c_username; c_realname;
+                 c_channel;
+                 c_irc_server; c_irc_port = int_of_string c_irc_port }
+  )
 
 let () =
   Lwt.async (
     fun () ->
       let rec loop () =
-        let cur_nick = ref nick in
+        let cur_nick = ref config.c_nick in
         Printf.eprintf "Conencting..\n%!";
         ( Lwt.catch (
             fun () ->
-              Irc_client_lwt.connect_by_name ~server:"jeti" ~port:6667 ~username:"BailaGW" ~mode:0 ~realname:"BailaGW" ~nick:!cur_nick () >>= fun c ->
+              Irc_client_lwt.connect_by_name
+                ~server:config.c_irc_server
+                ~port:config.c_irc_port
+                ~username:config.c_username
+                ~mode:0
+                ~realname:config.c_realname
+                ~nick:!cur_nick () >>= fun c ->
               Lwt.return (`Connection c)
             )
               (function
@@ -237,7 +273,7 @@ let () =
                 let open Irc_message in
                 match result with
                 | `Ok { command = Other "376" } ->
-                  Irc_client_lwt.send_join ~connection ~channel:channel
+                  Irc_client_lwt.send_join ~connection ~channel:config.c_channel
                 | `Ok { command = Other ("433" | "437") } ->
                   cur_nick := !cur_nick ^ "_";
                   Irc_client_lwt.send_nick ~connection ~nick:!cur_nick
@@ -279,7 +315,7 @@ let () =
   BailaGW_app.register
     ~service:main_service
     (fun () () ->
-       let _ = {unit{ init_client () }} in
+       let _ = {unit{ init_client %config.c_channel }} in
        Lwt.return
          (Eliom_tools.F.html
             ~title:"BailaGW"
