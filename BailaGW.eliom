@@ -248,7 +248,7 @@ let () =
                 ~server:config.c_irc_server
                 ~port:config.c_irc_port
                 ~username:config.c_username
-                ~mode:0
+                ~mode:8 (* invisible *)
                 ~realname:config.c_realname
                 ~nick:!cur_nick () >>= fun c ->
               Lwt.return (`Connection c)
