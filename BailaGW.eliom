@@ -28,8 +28,12 @@ type messages = message list deriving (Json)
 
 type range = (int * int) deriving (Json)
 
+type fragment =
+  | Url of string
+deriving (Json)
+
 type processed_message = {
-  pm_urls    : (range * string) list;
+  pm_meta    : (range * fragment) list;
   pm_message : message;
 } deriving (Json)
 }}
@@ -50,7 +54,7 @@ let messages : messages ref = ref []
 let process_message message =
   let urls, tags, text = Urls.urls_tags_of_string message.text in
   {
-    pm_urls    = urls;  
+    pm_meta    = List.map (fun (range, text) -> (range, Url text)) urls;
     pm_message = { message with text };
   }
 
@@ -96,19 +100,19 @@ let message_db =
   db
 
 {client{
-   let message_with_urls processed =
+   let message_with_meta processed =
      let text = processed.pm_message.text in
-     let rec scan offset urls =
-       match urls with
+     let rec scan offset meta =
+       match meta with
        | [] ->
          [pcdata (String.sub text offset (String.length text - offset))]
-       | ((ofs, len), url)::rest when ofs = offset ->
+       | ((ofs, len), Url url)::rest when ofs = offset ->
          Raw.a ~a:[a_href url; a_target "_new"] [pcdata url]::scan (ofs + len) rest
-       | (((ofs, _ofs1), _url)::_) as urls ->
+       | (((ofs, _ofs1), _)::_) as meta ->
          assert (ofs > offset);
-         pcdata (String.sub text offset (ofs - offset))::scan ofs urls
+         pcdata (String.sub text offset (ofs - offset))::scan ofs meta
      in
-     scan 0 processed.pm_urls
+     scan 0 processed.pm_meta
 
    let add_processed_message (processed : processed_message) =
      (* let area = Eliom_content.Html5.To_dom.of_p %message_area_elt in *)
@@ -119,7 +123,7 @@ let message_db =
        div ~a:[a_class ["message"]]
          [span ~a:[a_class ["src"]] [pcdata message.src];
           span ~a:[a_class ["timestamp"]] [pcdata message.timestamp];
-          span ~a:[a_class ["text"]] (message_with_urls processed)] in
+          span ~a:[a_class ["text"]] (message_with_meta processed)] in
      Eliom_content.Html5.Manip.appendChild %message_area_elt element;
      Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
      ()
