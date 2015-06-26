@@ -6,18 +6,33 @@ body {
     font-family: sans-serif;
 }
 
+#login {
+    width: 80%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 #login p {
     font-size: 3em;
 }
 
 #login input {
     font-size: 3em;
+    background-color: #c0c0d0;
+    padding: 2px;
+    border-width:1px;
+    border-color:#666666;
+    border-style:solid;
+    border-radius:5px;
+    -moz-border-radius:5px;
+    -webkit-border-radius:5px;
+    outline:none;
 }
 
 .message {
     margin-left: 1em;
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 10px;
 }
 
 .timestamp {
