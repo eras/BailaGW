@@ -1,3 +1,5 @@
+let (@.) f g x = g (f x)
+
 {shared{
 open Eliom_lib
 open Eliom_content
@@ -48,8 +50,6 @@ let main_service =
   Eliom_service.App.service ~path:["BailaGW"; ""] ~get_params:Eliom_parameter.unit ()
 
 open Eliom_content.Html5.D (* provides functions to create HTML nodes *)
-
-let messages : messages ref = ref []
 
 let process_message message =
   let urls, tags, text = Urls.urls_tags_of_string message.text in
@@ -153,8 +153,7 @@ let config =
   )
 
 {server{
-  let add_message (message : message) =
-    messages := !messages @ [message];
+  let message_to_clients (message : message) =
     let _ = Eliom_bus.write bus (process_message message) in
     Lwt.return ()
 
@@ -173,25 +172,29 @@ let config =
               Lwt.return ()
             )
       ) >>= fun () ->
-      db_add_message message >>= add_message
+      db_add_message message >>= message_to_clients
   )
 }}
+
+let all_messages_query = sqlc"SELECT @s{datetime(timestamp, 'localtime')}, @s{src}, @s{dst}, @s{str} FROM message ORDER BY timestamp"
+
+let of_sql_message (timestamp, src, dst, text) = { timestamp; src; dst; text }
 
 let () =
   Lwt.async (
     fun () ->
       S.iter message_db
-        (fun (timestamp, src, dst, text) ->
-           add_message { timestamp; src; dst; text }
-        )
-        sql"SELECT @s{datetime(timestamp, 'localtime')}, @s{src}, @s{dst}, @s{str} FROM message ORDER BY timestamp"
+        (of_sql_message @. message_to_clients)
+        all_messages_query
   )
 
 let backlog_service =
   Eliom_registration.Ocaml.register_service
     ~path:["BailaGW"; "backlog"]
     ~get_params:Eliom_parameter.unit
-    (fun () () -> Lwt.return (List.map process_message !messages))
+    (fun () () ->
+       S.select message_db all_messages_query >>= function messages ->
+       Lwt.return (List.map (of_sql_message @. process_message) messages))
 
 {client{
    let start_backlog channel nick =
@@ -268,7 +271,7 @@ let () =
             Lwt_unix.sleep 10.0
           | `Connection None ->
             Printf.eprintf "Failed to get connection\n%!";
-            add_message { timestamp = "now"; src = "BailaGW"; dst = ""; text = "Failed to create connection" } >>= fun () ->
+            message_to_clients { timestamp = "now"; src = "BailaGW"; dst = ""; text = "Failed to create connection" } >>= fun () ->
             Lwt_unix.sleep 10.0
           | `Connection (Some connection) ->
             (* add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Connected" } >>= fun () -> *)
@@ -284,7 +287,7 @@ let () =
                   Irc_client_lwt.send_nick ~connection ~nick:!cur_nick
                 | `Ok { prefix; command = PRIVMSG (dst, text) } ->
                   let text = { timestamp = "now"; src = CCOpt.get "" prefix; dst; text } in
-                  db_add_message text >>= add_message
+                  db_add_message text >>= message_to_clients
                 | `Ok ({ command = PASS _   } as t)
                 | `Ok ({ command = NICK _   } as t)
                 | `Ok ({ command = USER _   } as t)
