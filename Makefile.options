@@ -11,7 +11,7 @@ SERVER_FILES := $(wildcard *.eliomi *.eliom) urls.ml
 CLIENT_FILES := $(wildcard *.eliomi *.eliom)
 
 # OCamlfind packages for the server pcre
-SERVER_PACKAGES := irc-client irc-client.lwt sqlexpr sqlexpr.syntax containers containers.io ucorelib
+SERVER_PACKAGES := irc-client irc-client.lwt sqlexpr sqlexpr.syntax containers containers.io ucorelib uuidm
 # OCamlfind packages for the client
 CLIENT_PACKAGES := ucorelib
 

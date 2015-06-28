@@ -41,15 +41,16 @@ let no_image_upload_service =
          )
        ))  
 
-let image = ref None
 
 let image_upload_service =
+  let generate_uuid = Uuidm.v4_gen @@ Random.State.make_self_init () in
   Eliom_registration.Action.register_post_service
     ~fallback:no_image_upload_service
     ~post_params:(Eliom_parameter.file "image")
     (fun () file ->
+       let id = Uuidm.to_string (generate_uuid ()) in
        Printf.eprintf "Image uploaded to %s\n%!" file.Ocsigen_extensions.tmp_filename;
-       image := Some CCIO.(with_in file.Ocsigen_extensions.tmp_filename read_all);
+       Unix.link file.Ocsigen_extensions.tmp_filename (Printf.sprintf "images/%s.jpg" id);
        Lwt.return (
          (* (Eliom_tools.F.html *)
          (*    ~title:"Uploaded" *)
