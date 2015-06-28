@@ -32,18 +32,17 @@ let bus = Eliom_bus.create ~name:"messages" Json.t<processed_message>
 {server{
    let message_db =
      let db = S.open_db "bailagw.sqlite3" in
-     Lwt.async (
-       fun () ->
-         S.execute db
-           sqlinit"CREATE TABLE IF NOT EXISTS message(
+     Lwt_unix.run (
+       S.execute db
+         sqlinit"CREATE TABLE IF NOT EXISTS message(
               message INTEGER PRIMARY KEY,
               timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
               src TEXT NOT NULL,
               dst TEXT NOT NULL,
               str TEXT NOT NULL
             );" >>= fun () ->
-         S.execute db
-           sqlinit"CREATE TABLE IF NOT EXISTS config(
+       S.execute db
+         sqlinit"CREATE TABLE IF NOT EXISTS config(
               key TEXT NOT NULL,
               value TEXT NOT NULL
             );"
