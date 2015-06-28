@@ -78,3 +78,9 @@ let iter_all f =
 let get_all () =
   S.select message_db all_messages_query >>= fun messages ->
   List.map of_sql_message messages |> Lwt.return
+
+let () =
+  Lwt.async (
+    fun () ->
+      iter_all message_to_clients
+  )

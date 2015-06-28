@@ -19,12 +19,6 @@ module BailaGW_app =
 let main_service =
   Eliom_service.App.service ~path:["BailaGW"; ""] ~get_params:Eliom_parameter.unit ()
 
-let () =
-  Lwt.async (
-    fun () ->
-      Messages.iter_all Messages.message_to_clients
-  )
-
 let backlog_service =
   Eliom_registration.Ocaml.register_service
     ~path:["BailaGW"; "backlog"]
