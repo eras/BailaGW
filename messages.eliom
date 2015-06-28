@@ -45,6 +45,14 @@ let bus = Eliom_bus.create ~name:"messages" Json.t<processed_message>
          sqlinit"CREATE TABLE IF NOT EXISTS config(
               key TEXT NOT NULL,
               value TEXT NOT NULL
+            );" >>= fun () ->
+       S.execute db
+         sqlinit"CREATE TABLE IF NOT EXISTS image(
+              image TEXT NOT NULL,
+              src TEXT NOT NULL,
+              dst TEXT NOT NULL,
+              timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              content_type TEXT NOT NULL
             );"
      );
      db
@@ -78,6 +86,9 @@ let iter_all f =
 let get_all () =
   S.select message_db all_messages_query >>= fun messages ->
   List.map of_sql_message messages |> Lwt.return
+
+let add_image src dst uuid content_type =
+  S.execute message_db sql"INSERT INTO image(image, src, dst, content_type) VALUES (%s, %s, %s, %s)" src dst uuid content_type
 
 let () =
   Lwt.async (

@@ -51,6 +51,8 @@ let image_upload_service =
        let id = Uuidm.to_string (generate_uuid ()) in
        Printf.eprintf "Image uploaded to %s\n%!" file.Ocsigen_extensions.tmp_filename;
        Unix.link file.Ocsigen_extensions.tmp_filename (Printf.sprintf "images/%s.jpg" id);
+       let (mime1, mime2) = CCOpt.get ("application", "octetstream") @@ CCOpt.map fst file.Ocsigen_extensions.file_content_type in
+       Messages.add_image "" "#gb2015" id (Printf.sprintf "%s/%s" mime1 mime2) >>= fun () ->
        Lwt.return (
          (* (Eliom_tools.F.html *)
          (*    ~title:"Uploaded" *)
