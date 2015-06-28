@@ -19,8 +19,6 @@ module BailaGW_app =
 let main_service =
   Eliom_service.App.service ~path:["BailaGW"; ""] ~get_params:Eliom_parameter.unit ()
 
-open Eliom_content.Html5.D (* provides functions to create HTML nodes *)
-
 let () =
   Lwt.async (
     fun () ->
