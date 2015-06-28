@@ -27,6 +27,38 @@ let backlog_service =
        Messages.get_all () >>= function messages ->
        Lwt.return (List.map Messages.process_message messages))
 
+let no_image_upload_service =
+  Eliom_registration.Html5.register_service
+    ~path:["BailaGW"; "image_upload"]
+    ~get_params:Eliom_parameter.unit
+    (fun () () ->
+       Lwt.return (
+         (Eliom_tools.F.html
+            ~title:"Upload it"
+            Html5.F.(body [
+              ]
+              )
+         )
+       ))  
+
+let image = ref None
+
+let image_upload_service =
+  Eliom_registration.Action.register_post_service
+    ~fallback:no_image_upload_service
+    ~post_params:(Eliom_parameter.file "image")
+    (fun () file ->
+       Printf.eprintf "Image uploaded to %s\n%!" file.Ocsigen_extensions.tmp_filename;
+       image := Some CCIO.(with_in file.Ocsigen_extensions.tmp_filename read_all);
+       Lwt.return (
+         (* (Eliom_tools.F.html *)
+         (*    ~title:"Uploaded" *)
+         (*    Html5.F.(body [ *)
+         (*      ] *)
+         (*      ) *)
+         (* ) *)
+       ))
+
 {server{
   let config = Config.config Messages.message_db
 
@@ -56,7 +88,7 @@ let backlog_service =
       ~service:main_service
       (fun () () ->
          let channel = config.Config.c_channel in
-         let _ = {unit{ Client.init_client %backlog_service %send_add_message %channel }} in
+         let _ = {unit{ Client.init_client %image_upload_service %backlog_service %send_add_message %channel }} in
          Lwt.return
            (Eliom_tools.F.html
               ~title:"BailaGW"
