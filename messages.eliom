@@ -49,6 +49,7 @@ let bus = Eliom_bus.create ~name:"messages" Json.t<processed_message>
        S.execute db
          sqlinit"CREATE TABLE IF NOT EXISTS image(
               image TEXT NOT NULL,
+              scale INTEGER NOT NULL DEFAULT 0, -- scale = 0 = original
               src TEXT NOT NULL,
               dst TEXT NOT NULL,
               timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
