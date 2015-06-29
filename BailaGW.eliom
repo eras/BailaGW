@@ -79,14 +79,15 @@ let image_upload_service =
   let generate_uuid = Uuidm.v4_gen @@ Random.State.make_self_init () in
   Eliom_registration.Html5.register_post_service
     ~fallback:no_image_upload_service
-    ~post_params:(Eliom_parameter.file "image")
-    (fun () file ->
+    ~post_params:Eliom_parameter.(file "image" ** string "src" ** string "dst")
+    (fun () (file, (src, dst)) ->
+       assert (dst = config.Config.c_channel);
        let id = Uuidm.to_string (generate_uuid ()) in
        Printf.eprintf "Image uploaded to %s\n%!" file.Ocsigen_extensions.tmp_filename;
        Unix.link file.Ocsigen_extensions.tmp_filename (Printf.sprintf "images/%s.%d" id 0);
        let (mime1, mime2) = CCOpt.get ("application", "octetstream") @@ CCOpt.map fst file.Ocsigen_extensions.file_content_type in
-       Messages.add_image "upload" config.Config.c_channel id (Printf.sprintf "%s/%s" mime1 mime2) 0 >>= fun () ->
-       server_add_message `Notice { Messages.src = "upload"; dst = config.Config.c_channel; timestamp = "now"; contents = Messages.Image id } >>= fun () ->
+       Messages.add_image src dst id (Printf.sprintf "%s/%s" mime1 mime2) 0 >>= fun () ->
+       server_add_message `Notice { Messages.src; dst; timestamp = "now"; contents = Messages.Image id } >>= fun () ->
        Lwt.return (
          (Eliom_tools.F.html
             ~title:"Uploaded"

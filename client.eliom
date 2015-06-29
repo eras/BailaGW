@@ -142,6 +142,8 @@ let input_field_elt, input_area_elt, upload_image_elt =
              xmlhttp##onreadystatechange <- Js.wrap_callback onreadystatechange;
              let form = jsnew Form.formData () in
              form##append_blob (Js.string "image", Js.Unsafe.coerce file);
+             form##append (Js.string "src", Js.string "BailaGW");
+             form##append (Js.string "dst", Js.string "#gb2015");
              xmlhttp##_open (Js.string "POST", Js.string "image_upload", Js._true);
              xmlhttp##send_formData (form)
            end;
