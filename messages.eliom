@@ -53,8 +53,10 @@ let bus = Eliom_bus.create ~name:"messages" Json.t<processed_message>
               src TEXT NOT NULL,
               dst TEXT NOT NULL,
               timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-              content_type TEXT NOT NULL
-            );"
+              content_type TEXT NOT NULL,
+              CONSTRAINT image_image_scale_unique
+              UNIQUE(image, scale)
+         )"
      );
      db
 
@@ -89,7 +91,11 @@ let get_all () =
   List.map of_sql_message messages |> Lwt.return
 
 let add_image src dst uuid content_type =
-  S.execute message_db sql"INSERT INTO image(image, src, dst, content_type) VALUES (%s, %s, %s, %s)" src dst uuid content_type
+  S.execute message_db sql"INSERT INTO image(image, src, dst, content_type) VALUES (%s, %s, %s, %s)" uuid src dst content_type
+
+let find_image uuid scale =
+  S.select_one message_db sql"SELECT @s{image}, @s{content_type} FROM image WHERE image = %s and scale = %d" uuid scale >>= fun (uuid, content_type) ->
+  Lwt.return (uuid, content_type)
 
 let () =
   Lwt.async (
