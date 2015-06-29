@@ -30,14 +30,16 @@ let backlog_service =
 {server{
   let config = Config.config Messages.message_db
 
-  let server_add_message (message : Messages.message) =
+  let server_add_message kind (message : Messages.message) =
     ( match !(Irc.irc_connection) with
       | None -> Lwt.return ()
       | Some connection ->
         Lwt.catch (
           fun () ->
             assert (message.Messages.dst = config.Config.c_channel);
-            Irc_client_lwt.send_privmsg ~connection ~target:message.Messages.dst ~message:(message.Messages.src ^ "> " ^ message.Messages.text)
+            (match kind with
+             | `Notice -> Irc_client_lwt.send_notice
+             | `Message -> Irc_client_lwt.send_privmsg) ~connection ~target:message.Messages.dst ~message:(message.Messages.src ^ "> " ^ message.Messages.text)
         )
           (function exn ->
             Printf.eprintf "Problem writing to socket: %s\n%!" (Printexc.to_string exn);
@@ -46,7 +48,7 @@ let backlog_service =
     ) >>= fun () ->
     Messages.db_add_message message >>= Messages.message_to_clients
 
-  let send_add_message = server_function ~name:"send_add_message" Json.t<Messages.message> server_add_message
+  let send_add_message = server_function ~name:"send_add_message" Json.t<Messages.message> (server_add_message `Message)
 }}
 
 let no_image_upload_service =
@@ -86,7 +88,7 @@ let image_upload_service =
        let (mime1, mime2) = CCOpt.get ("application", "octetstream") @@ CCOpt.map fst file.Ocsigen_extensions.file_content_type in
        Messages.add_image "upload" config.Config.c_channel id (Printf.sprintf "%s/%s" mime1 mime2) >>= fun () ->
        let uri = Eliom_uri.make_string_uri ~absolute:true ~service:image_download_service (id, 0) in
-       server_add_message { Messages.src = "upload"; dst = config.Config.c_channel; timestamp = "now"; text = Printf.sprintf "Image uploaded: %s" uri } >>= fun () ->
+       server_add_message `Notice { Messages.src = "upload"; dst = config.Config.c_channel; timestamp = "now"; text = Printf.sprintf "Image uploaded: %s" uri } >>= fun () ->
        Lwt.return (
          (Eliom_tools.F.html
             ~title:"Uploaded"
