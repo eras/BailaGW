@@ -94,7 +94,7 @@ let bus = Eliom_bus.create ~name:"messages" Json.t<processed_message>
 }}
 
 let all_messages_query = sqlc"SELECT @s{datetime(timestamp, 'localtime')}, @s{src}, @s{dst}, @s{str} FROM message ORDER BY timestamp"
-let all_images_query = sqlc"SELECT @s{datetime(timestamp, 'localtime')}, @s{src}, @s{dst}, @s{image} FROM image ORDER BY timestamp"
+let all_images_query = sqlc"SELECT @s{datetime(timestamp, 'localtime')}, @s{src}, @s{dst}, @s{image} FROM image WHERE scale = 0 ORDER BY timestamp"
 
 let of_sql_message (timestamp, src, dst, text) = { timestamp; src; dst; contents = Text text }
 
