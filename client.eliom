@@ -75,18 +75,24 @@ let input_field_elt, input_area_elt, upload_image_elt =
    open Eliom_content.Html5.D (* provides functions to create HTML nodes *)
 
    let message_with_meta processed =
-     let text = processed.Messages.pm_message.Messages.text in
-     let rec scan offset meta =
-       match meta with
-       | [] ->
-         [pcdata (String.sub text offset (String.length text - offset))]
-       | ((ofs, len), Messages.Url url)::rest when ofs = offset ->
-         Raw.a ~a:[a_href url; a_target "_new"] [pcdata url]::scan (ofs + len) rest
-       | (((ofs, _ofs1), _)::_) as meta ->
-         assert (ofs > offset);
-         pcdata (String.sub text offset (ofs - offset))::scan ofs meta
-     in
-     scan 0 processed.Messages.pm_meta
+     let open Messages in
+     match processed.pm_message.contents with
+     | Text text ->
+       let rec scan offset meta =
+         match meta with
+         | [] ->
+           [pcdata (String.sub text offset (String.length text - offset))]
+         | ((ofs, len), Messages.Url url)::rest when ofs = offset ->
+           Raw.a ~a:[a_href url; a_target "_new"] [pcdata url]::scan (ofs + len) rest
+         | (((ofs, _ofs1), _)::_) as meta ->
+           assert (ofs > offset);
+           pcdata (String.sub text offset (ofs - offset))::scan ofs meta
+       in
+       scan 0 processed.Messages.pm_meta
+     | Image id ->
+       let uri_orig = Eliom_uri.make_string_uri ~absolute:true ~service:%ImageDownload.service (id, 0) in
+       let uri_small = Eliom_uri.make_string_uri ~absolute:true ~service:%ImageDownload.service (id, 1) in
+       [Raw.a ~a:[a_href uri_orig; a_target "_new"] [img ~src:uri_small ~alt:id ()]]
 
    let add_processed_message (processed : Messages.processed_message) =
      (* let area = Eliom_content.Html5.To_dom.of_p %message_area_elt in *)
@@ -112,7 +118,7 @@ let input_field_elt, input_area_elt, upload_image_elt =
          fun ev ->
            if ev##keyCode = 13 then
              ( let value = Js.to_string input_field##value in
-               Lwt.async (fun () -> send_add_message Messages.{ timestamp = "now"; src = "BailaGW/" ^ nick; dst = channel; text = value });
+               Lwt.async (fun () -> send_add_message Messages.{ timestamp = "now"; src = "BailaGW/" ^ nick; dst = channel; contents = Text value });
                input_field##value <- Js.string "";
                Js._false )
            else
