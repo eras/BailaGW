@@ -94,8 +94,11 @@ let bus = Eliom_bus.create ~name:"messages" Json.t<processed_message>
 }}
 
 let all_messages_query = sqlc"SELECT @s{datetime(timestamp, 'localtime')}, @s{src}, @s{dst}, @s{str} FROM message ORDER BY timestamp"
+let all_images_query = sqlc"SELECT @s{datetime(timestamp, 'localtime')}, @s{src}, @s{dst}, @s{image} FROM image ORDER BY timestamp"
 
 let of_sql_message (timestamp, src, dst, text) = { timestamp; src; dst; contents = Text text }
+
+let of_sql_image (timestamp, src, dst, image) = { timestamp; src; dst; contents = Image image }
 
 let iter_all f =
   S.iter message_db
@@ -104,7 +107,10 @@ let iter_all f =
 
 let get_all () =
   S.select message_db all_messages_query >>= fun messages ->
-  List.map of_sql_message messages |> Lwt.return
+  S.select message_db all_images_query >>= fun images ->
+  let messages = List.map of_sql_message messages in
+  let images = List.map of_sql_image images in
+  messages @ images |> List.sort (fun { timestamp = a } { timestamp = b } -> compare a b) |> Lwt.return
 
 let add_image src dst uuid content_type scale =
   S.execute message_db sql"INSERT INTO image(image, src, dst, content_type, scale) VALUES (%s, %s, %s, %s, %d)" uuid src dst content_type scale
