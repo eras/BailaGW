@@ -8,13 +8,13 @@ let service =
     ~get_params:Eliom_parameter.(string "id" ** int "scale")
     (fun (id, scale) () ->
        Messages.find_image id scale >>= function
-       | Some (src, dst, uuid, content_type, _scale) ->
+       | Some (src, dst, id, content_type, _scale) ->
          Eliom_registration.File.send
            ~content_type
-           (Printf.sprintf "images/%s.%d" uuid scale)
+           (Printf.sprintf "images/%s.%d" id scale)
        | None when scale = 1 ->
          begin Messages.find_image id 0 >>= function
-           | Some (src, dst, uuid, content_type, _scale) ->
+           | Some (src, dst, id, content_type, _scale) ->
              begin
                match Pcre.extract ~pat:"/([a-zA-Z0-9]*)" ~full_match:false content_type with
                | [|type_|] ->
