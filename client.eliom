@@ -125,7 +125,7 @@ let input_field_elt, input_area_elt, upload_image_elt =
          fun ev ->
            if ev##keyCode = 13 then
              ( let value = Js.to_string input_field##value in
-               Lwt.async (fun () -> send_add_message Messages.{ timestamp = "now"; src = "BailaGW/" ^ nick; dst = channel; contents = Text value });
+               Lwt.async (fun () -> send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Text value });
                input_field##value <- Js.string "";
                Js._false )
            else
