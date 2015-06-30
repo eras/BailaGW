@@ -73,6 +73,7 @@ let input_field_elt, input_area_elt, upload_image_elt =
 {client{
    open Common
    open Eliom_content.Html5.D (* provides functions to create HTML nodes *)
+   module To_dom = Eliom_content.Html5.To_dom
 
    let message_with_meta processed =
      let open Messages in
@@ -92,7 +93,14 @@ let input_field_elt, input_area_elt, upload_image_elt =
      | Image id ->
        let uri_orig = Eliom_uri.make_string_uri ~absolute:true ~service:%ImageDownload.service (id, 0) in
        let uri_small = Eliom_uri.make_string_uri ~absolute:true ~service:%ImageDownload.service (id, 1) in
-       [Raw.a ~a:[a_href uri_orig; a_target "_new"] [img ~src:uri_small ~alt:id ()]]
+       let img_elt = img ~src:uri_small ~alt:id () in
+       let img = To_dom.of_img img_elt in
+       img##onload <- Dom_html.handler (
+           fun ev ->
+             Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
+             Js._true
+         );
+       [Raw.a ~a:[a_href uri_orig; a_target "_new"] [img_elt]]
 
    let add_processed_message (processed : Messages.processed_message) =
      (* let area = Eliom_content.Html5.To_dom.of_p %message_area_elt in *)
@@ -109,7 +117,6 @@ let input_field_elt, input_area_elt, upload_image_elt =
      ()
 
    let start_backlog image_upload_service backlog_service send_add_message channel nick =
-     let module To_dom = Eliom_content.Html5.To_dom in
      let input_field = To_dom.of_textarea %input_field_elt in
      let input_area = To_dom.of_div %input_area_elt in
      let upload_image = To_dom.of_input %upload_image_elt in
