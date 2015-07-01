@@ -26,7 +26,7 @@ let service =
                  in
                  begin Lwt_process.exec ~timeout:10.0 ("/usr/bin/convert", args) >>= function
                    | Unix.WEXITED 0 ->
-                     Messages.add_image src dst id "image/jpeg" 1 >>= fun () ->
+                     Messages.add_image src dst id "image/jpeg" 1 >>= fun _ ->
                      Eliom_registration.File.send ~content_type:"image/jpeg" (Printf.sprintf "images/%s.1" id)
                    | _ -> Eliom_registration.File.send "/dev/null"
                  end

@@ -113,7 +113,8 @@ let get_all () =
   messages @ images |> List.sort (fun { timestamp = a } { timestamp = b } -> compare a b) |> Lwt.return
 
 let add_image src dst uuid content_type scale =
-  S.execute message_db sql"INSERT INTO image(image, src, dst, content_type, scale) VALUES (%s, %s, %s, %s, %d)" uuid src dst content_type scale
+  S.execute message_db sql"INSERT INTO image(image, src, dst, content_type, scale) VALUES (%s, %s, %s, %s, %d)" uuid src dst content_type scale >>= fun () ->
+  S.select_one message_db sql"SELECT @s{datetime(timestamp, 'localtime')} FROM image WHERE image = %s" uuid
 
 let find_image uuid scale =
   S.select_one_maybe message_db sql"SELECT @s{src}, @s{dst}, @s{image}, @s{content_type}, @d{scale} FROM image WHERE image = %s and scale = %d" uuid scale

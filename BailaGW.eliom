@@ -86,8 +86,8 @@ let image_upload_service =
        Printf.eprintf "Image uploaded to %s\n%!" file.Ocsigen_extensions.tmp_filename;
        Unix.link file.Ocsigen_extensions.tmp_filename (Printf.sprintf "images/%s.%d" id 0);
        let (mime1, mime2) = CCOpt.get ("application", "octetstream") @@ CCOpt.map fst file.Ocsigen_extensions.file_content_type in
-       Messages.add_image src dst id (Printf.sprintf "%s/%s" mime1 mime2) 0 >>= fun () ->
-       server_add_message `Notice { Messages.src; dst; timestamp = "now"; contents = Messages.Image id } >>= fun () ->
+       Messages.add_image src dst id (Printf.sprintf "%s/%s" mime1 mime2) 0 >>= fun timestamp ->
+       server_add_message `Notice { Messages.src; dst; timestamp; contents = Messages.Image id } >>= fun () ->
        Lwt.return (
          (Eliom_tools.F.html
             ~title:"Uploaded"
