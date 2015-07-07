@@ -25,26 +25,31 @@ let input_field_elt, input_area_elt, upload_image_elt =
   input_field_elt, input_area_elt, upload_image_elt
 
 {shared{
-type ('a, 'b, 'c, 'd, 'e, 'f, 'nick) context = {
+type ('nick) context = {
   image_upload_service :
-    (unit, Eliom_lib.file_info * (string * string),
-     [< Eliom_service.service_method > `Post ] as 'd,
-     [< Eliom_service.attached > `Attached ] as 'c,
+    (unit,
+     Eliom_lib.file_info * (string * string),
+     [ Eliom_service.service_method ],
+     [ Eliom_service.attached ],
      [ `AttachedCoservice | `Service ],
-     [ `WithoutSuffix ], unit,
+     [ `WithoutSuffix ],
+     unit,
      [ `One of Eliom_lib.file_info ]
        Eliom_parameter.param_name *
      ([ `One of string ] Eliom_parameter.param_name *
       [ `One of string ] Eliom_parameter.param_name),
-     [< Eliom_service.registrable > `Registrable ] as 'b,
-     [> Eliom_service.http_service ] as 'a)
+     [ Eliom_service.registrable ],
+     [ Eliom_service.http_service ])
       Eliom_service.service;
   backlog_service :
-    (unit, unit, [< Eliom_service.service_method > `Get ] as 'e,
-     [< Eliom_service.attached > `Attached ] as 'c,
-     [< Eliom_service.service_kind > `Service ] as 'f,
-     [ `WithoutSuffix ], unit,
-     unit, [< Eliom_service.registrable > `Registrable ] as 'b,
+    (unit, unit,
+     [ Eliom_service.service_method ],
+     [ Eliom_service.attached ],
+     [ Eliom_service.service_kind ],
+     [ `WithoutSuffix ],
+     unit,
+     unit,
+     [ Eliom_service.registrable ],
      Messages.processed_message list Eliom_service.ocaml_service)
       Eliom_service.service;
   send_add_message : Messages.message -> unit Lwt.t;
