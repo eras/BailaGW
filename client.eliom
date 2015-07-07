@@ -24,6 +24,35 @@ let input_field_elt, input_area_elt, upload_image_elt =
   in
   input_field_elt, input_area_elt, upload_image_elt
 
+{shared{
+type ('a, 'b, 'c, 'd, 'e, 'f, 'nick) context = {
+  image_upload_service :
+    (unit, Eliom_lib.file_info * (string * string),
+     [< Eliom_service.service_method > `Post ] as 'd,
+     [< Eliom_service.attached > `Attached ] as 'c,
+     [ `AttachedCoservice | `Service ],
+     [ `WithoutSuffix ], unit,
+     [ `One of Eliom_lib.file_info ]
+       Eliom_parameter.param_name *
+     ([ `One of string ] Eliom_parameter.param_name *
+      [ `One of string ] Eliom_parameter.param_name),
+     [< Eliom_service.registrable > `Registrable ] as 'b,
+     [> Eliom_service.http_service ] as 'a)
+      Eliom_service.service;
+  backlog_service :
+    (unit, unit, [< Eliom_service.service_method > `Get ] as 'e,
+     [< Eliom_service.attached > `Attached ] as 'c,
+     [< Eliom_service.service_kind > `Service ] as 'f,
+     [ `WithoutSuffix ], unit,
+     unit, [< Eliom_service.registrable > `Registrable ] as 'b,
+     Messages.processed_message list Eliom_service.ocaml_service)
+      Eliom_service.service;
+  send_add_message : Messages.message -> unit Lwt.t;
+  channel          : string;
+  nick             : 'nick;
+}
+}}
+
 {client{
    open Common
    open Eliom_content.Html5.D (* provides functions to create HTML nodes *)
@@ -73,7 +102,7 @@ let input_field_elt, input_area_elt, upload_image_elt =
    let process_line send_add_message channel nick line =
      Lwt.async (fun () -> send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Text line })
 
-   let start_backlog image_upload_service backlog_service send_add_message channel nick =
+   let start_backlog ({ image_upload_service; backlog_service; send_add_message; channel; nick } as context) =
      let input_field = To_dom.of_textarea %input_field_elt in
      let input_area = To_dom.of_div %input_area_elt in
      let upload_image = To_dom.of_input %upload_image_elt in
@@ -135,9 +164,9 @@ let input_field_elt, input_area_elt, upload_image_elt =
         );
       Lwt.return ()
         
-   let init_client image_upload_service backlog_service send_add_message channel =
+   let init_client {image_upload_service; backlog_service; send_add_message; channel} =
      Lwt.async (
        fun () ->
-         query_nick (start_backlog image_upload_service backlog_service send_add_message channel)
+         query_nick (fun nick -> start_backlog {image_upload_service; backlog_service; send_add_message; channel; nick})
      )
 }}

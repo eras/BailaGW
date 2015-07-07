@@ -107,7 +107,12 @@ let image_upload_service =
       ~service:main_service
       (fun () () ->
          let channel = config.Config.c_channel in
-         let _ = {unit{ Client.init_client %image_upload_service %backlog_service %send_add_message %channel }} in
+         let _ = {unit{ Client.init_client { Client.image_upload_service = %image_upload_service;
+                                             backlog_service = %backlog_service;
+                                             send_add_message = %send_add_message;
+                                             channel = %channel;
+                                             nick = (); }
+                      }} in
          Lwt.return
            (Eliom_tools.F.html
               ~title:"BailaGW"
