@@ -70,6 +70,9 @@ let input_field_elt, input_area_elt, upload_image_elt =
      Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
      ()
 
+   let process_line send_add_message channel nick line =
+     Lwt.async (fun () -> send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Text line })
+
    let start_backlog image_upload_service backlog_service send_add_message channel nick =
      let input_field = To_dom.of_textarea %input_field_elt in
      let input_area = To_dom.of_div %input_area_elt in
@@ -79,8 +82,8 @@ let input_field_elt, input_area_elt, upload_image_elt =
          fun ev ->
            if ev##keyCode = 13 then
              ( let value = Js.to_string input_field##value in
-               Lwt.async (fun () -> send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Text value });
                input_field##value <- Js.string "";
+               process_line send_add_message channel nick value;
                Js._false )
            else
              Js._true
