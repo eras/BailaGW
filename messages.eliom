@@ -118,9 +118,3 @@ let add_image src dst uuid content_type scale =
 
 let find_image uuid scale =
   S.select_one_maybe message_db sql"SELECT @s{src}, @s{dst}, @s{image}, @s{content_type}, @d{scale} FROM image WHERE image = %s and scale = %d" uuid scale
-
-let () =
-  Lwt.async (
-    fun () ->
-      iter_all message_to_clients
-  )
