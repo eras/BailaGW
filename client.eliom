@@ -104,8 +104,47 @@ type ('nick) context = {
      Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
      ()
 
+   let println str =
+     let element =
+       div ~a:[a_class ["message"]]
+         [span ~a:[a_class ["text"]] [pcdata str]] in
+     Eliom_content.Html5.Manip.appendChild %message_area_elt element;
+     Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
+     ()
+
+   type operation = unit -> unit Lwt.t
+
+   type command = {
+     command     : string;
+     description : string;
+     operation   : operation;
+   }
+
+   let cmd_help commands =
+     println ":(";
+     Lwt.return ()
+
+   let rec commands = [
+     { command = "help";
+       description = "Lists the available commands";
+       operation = fun () -> cmd_help commands }
+   ]
+
+   let is_command name cmd = cmd.command = name
+
+   let process_command channel nick line =
+     match Re.split (Re_pcre.regexp "[\t ]+") line with
+     | command::args when List.exists (is_command command) commands ->
+       (List.find (is_command command) commands).operation ()
+     | _ ->
+       println "No such command :(";
+       Lwt.return ()
+
    let process_line send_add_message channel nick line =
-     Lwt.async (fun () -> send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Text line })
+     if String.length line > 1 && String.sub line 0 1 = "/" then
+       Lwt.async (fun () -> process_command channel nick (String.sub line 1 (String.length line - 1)))
+     else
+       Lwt.async (fun () -> send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Text line })
 
    let start_backlog ({ image_upload_service; backlog_service; send_add_message; channel; nick } as context) =
      let input_field = To_dom.of_textarea %input_field_elt in

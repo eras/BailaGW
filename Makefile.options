@@ -13,7 +13,7 @@ CLIENT_FILES := $(wildcard *.eliomi *.eliom)
 # OCamlfind packages for the server pcre
 SERVER_PACKAGES := irc-client irc-client.lwt sqlexpr sqlexpr.syntax containers containers.io ucorelib uuidm
 # OCamlfind packages for the client
-CLIENT_PACKAGES := ucorelib
+CLIENT_PACKAGES := ucorelib re re.pcre
 
 # Directory with files to be statically served
 LOCAL_STATIC = static
