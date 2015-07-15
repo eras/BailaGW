@@ -3,6 +3,67 @@ open Common
 let irc_connection = ref None
 
 {server{
+  type response =
+    | R_PRIVMSG
+    | R_PASS
+    | R_NICK
+    | R_USER
+    | R_OPER
+    | R_MODE
+    | R_QUIT
+    | R_SQUIT
+    | R_JOIN
+    | R_JOIN0
+    | R_PART
+    | R_TOPIC
+    | R_NAMES
+    | R_LIST
+    | R_INVITE
+    | R_KICK
+    | R_NOTICE
+    | R_PING
+    | R_PONG
+    | R_Other of string
+
+  type callback = {
+    id       : int;
+    response : response;
+    callback : Irc_client_lwt.connection_t -> Irc_message.t -> unit Lwt.t;
+  }
+
+  let response_of_irc_message { Irc_message.command = cmd } =
+    let open Irc_message in
+    match cmd with
+    | PRIVMSG _ -> R_PRIVMSG
+    | PASS _    -> R_PASS
+    | NICK _    -> R_NICK
+    | USER _    -> R_USER
+    | OPER _    -> R_OPER
+    | MODE _    -> R_MODE
+    | QUIT _    -> R_QUIT
+    | SQUIT _   -> R_SQUIT
+    | JOIN _    -> R_JOIN
+    | JOIN0     -> R_JOIN0
+    | PART _    -> R_PART
+    | TOPIC _   -> R_TOPIC
+    | NAMES _   -> R_NAMES
+    | LIST _    -> R_LIST
+    | INVITE _  -> R_INVITE
+    | KICK _    -> R_KICK
+    | NOTICE _  -> R_NOTICE
+    | PING _    -> R_PING
+    | PONG _    -> R_PONG
+    | Other x   -> R_Other x
+
+  let is_response response callback = callback.response = response
+
+  let callback_id = ref 0
+  let callbacks = ref []
+
+  let add_callback response callback =
+    incr callback_id;
+    callbacks := { response; callback; id = !callback_id }::!callbacks
+
   let init config =
     Lwt.async (
       fun () ->
@@ -72,7 +133,13 @@ let irc_connection = ref None
                   | `Ok ({ command = PONG _   } as t)
                   | `Ok ({ command = Other _  } as t) ->
                     Printf.eprintf "%s\n%!" (to_string t);
-                    Lwt.return ()
+                    let relevant_callbacks = List.filter (is_response (response_of_irc_message t)) !callbacks in
+                    let relevant_ids = List.map (fun callback -> callback.id) relevant_callbacks in
+                    callbacks := List.filter (fun callback -> not (List.mem callback.id relevant_ids)) !callbacks;
+                    Lwt_list.iter_s (
+                      fun callback ->
+                        callback.callback connection t
+                    ) relevant_callbacks
                   | `Error error ->
                     Printf.eprintf "error: %s\n%!" error;
                     Lwt.return ()
@@ -82,4 +149,30 @@ let irc_connection = ref None
         irc_connection := None;
         loop ()
     )
+
+  let with_connection f =
+    match !(irc_connection) with
+    | None -> Lwt.return ()
+    | Some connection -> f connection
+
+  let names channel =
+    let (thread, wake) = Lwt.wait () in
+    with_connection (fun connection ->
+        let open Irc_message in
+        let response = ref [] in
+        let rec retrieve_list () =
+          add_callback (R_Other "353") @@ fun _connection message ->
+          response := message.params::!response;
+          retrieve_list ();
+          Lwt.return ()
+        in
+        retrieve_list ();
+        add_callback (R_Other "366") (fun _connection message -> Lwt.wakeup wake (List.concat !response) |> Lwt.return);
+        Irc_client_lwt.send ~connection {
+            prefix  = None;
+            command = NAMES [channel];
+            params  = [];
+        };
+      ) >>= fun () ->
+    thread
 }}
