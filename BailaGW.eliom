@@ -28,13 +28,21 @@ let backlog_service =
        Lwt.return (List.map Messages.process_message messages))
 
 {server{
-  let config = Config.config Messages.message_db
+let config = Config.config Messages.message_db
+}}
 
+let names_service =
+  Eliom_registration.Ocaml.register_service
+    ~path:["BailaGW"; "cmd"; "names"]
+    ~get_params:Eliom_parameter.unit
+    (fun () () ->
+       Irc.names config.Config.c_channel >>= function names ->
+       Lwt.return names)
+
+{server{
   let server_add_message kind (message : Messages.message) =
     let open Messages in
-    ( match !(Irc.irc_connection) with
-      | None -> Lwt.return ()
-      | Some connection ->
+    Irc.with_connection (fun connection ->
         Lwt.catch (
           fun () ->
             assert (message.dst = config.Config.c_channel);
@@ -55,7 +63,7 @@ let backlog_service =
             Printf.eprintf "Problem writing to socket: %s\n%!" (Printexc.to_string exn);
             Lwt.return ()
           )
-    ) >>= fun () ->
+      ) >>= fun () ->
     db_add_message message >>= message_to_clients
 
   let send_add_message = server_function ~name:"send_add_message" Json.t<Messages.message> (server_add_message `Message)
@@ -108,6 +116,7 @@ let image_upload_service =
       (fun () () ->
          let channel = config.Config.c_channel in
          let _ = {unit{ Client.init_client { Client.image_upload_service = %image_upload_service;
+                                             names_service = %names_service;
                                              backlog_service = %backlog_service;
                                              send_add_message = %send_add_message;
                                              channel = %channel;

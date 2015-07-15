@@ -52,6 +52,17 @@ type ('nick) context = {
      [ Eliom_service.registrable ],
      Messages.processed_message list Eliom_service.ocaml_service)
       Eliom_service.service;
+  names_service :
+    (unit, unit,
+     [ Eliom_service.service_method ],
+     [ Eliom_service.attached ],
+     [ Eliom_service.service_kind ],
+     [ `WithoutSuffix ],
+     unit,
+     unit,
+     [ Eliom_service.registrable ],
+     string list Eliom_service.ocaml_service)
+      Eliom_service.service;
   send_add_message : Messages.message -> unit Lwt.t;
   channel          : string;
   nick             : 'nick;
@@ -118,7 +129,7 @@ let printelm elements =
   Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
   ()
 
-type operation = unit -> unit Lwt.t
+type operation = string context -> unit Lwt.t
 
 type command = {
   command     : string;
@@ -126,34 +137,42 @@ type command = {
   operation   : operation;
 }
 
-let cmd_help commands =
+let cmd_help commands context =
   commands
   |> List.map (fun command -> tr [td ~a:[a_class ["command"]] [pcdata command.command];
                                   td ~a:[a_class ["description"]] [pcdata command.description]])
   |> (fun tbl -> printelm [table tbl])
   |> Lwt.return
 
+let cmd_names context =
+  Eliom_client.call_ocaml_service ~service:context.names_service () () >>= fun names ->
+  println ("Peole here: " ^ String.concat " " names);
+  Lwt.return ()
+
 let rec commands = [
   { command = "help";
     description = "Lists the available commands";
-    operation = fun () -> cmd_help commands };
+    operation = fun context -> cmd_help commands context };
+  { command = "names";
+    description = "Lists the people who are on the channel";
+    operation = cmd_names }
 ]
 
 let is_command name cmd = cmd.command = name
 
-let process_command channel nick line =
+let process_command context channel nick line =
   match Re.split (Re_pcre.regexp "[\t ]+") line with
   | command::args when List.exists (is_command command) commands ->
-    (List.find (is_command command) commands).operation ()
+    (List.find (is_command command) commands).operation context
   | _ ->
     println "No such command :(";
     Lwt.return ()
 
-let process_line send_add_message channel nick line =
+let process_line context channel nick line =
   if String.length line > 1 && String.sub line 0 1 = "/" then
-    Lwt.async (fun () -> process_command channel nick (String.sub line 1 (String.length line - 1)))
+    Lwt.async (fun () -> process_command context channel nick (String.sub line 1 (String.length line - 1)))
   else
-    Lwt.async (fun () -> send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Text line })
+    Lwt.async (fun () -> context.send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Text line })
 
 let start_backlog ({ image_upload_service; backlog_service; send_add_message; channel; nick } as context) =
   let input_field = To_dom.of_textarea %input_field_elt in
@@ -165,7 +184,7 @@ let start_backlog ({ image_upload_service; backlog_service; send_add_message; ch
         if ev##keyCode = 13 then
           ( let value = Js.to_string input_field##value in
             input_field##value <- Js.string "";
-            process_line send_add_message channel nick value;
+            process_line context channel nick value;
             Js._false )
         else
           Js._true
@@ -217,9 +236,9 @@ let query_nick continue =
     );
   Lwt.return ()
 
-let init_client {image_upload_service; backlog_service; send_add_message; channel} =
+let init_client {names_service; image_upload_service; backlog_service; send_add_message; channel} =
   Lwt.async (
     fun () ->
-      query_nick (fun nick -> start_backlog {image_upload_service; backlog_service; send_add_message; channel; nick})
+      query_nick (fun nick -> start_backlog {names_service; image_upload_service; backlog_service; send_add_message; channel; nick})
   )
 }}
