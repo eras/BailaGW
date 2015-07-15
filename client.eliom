@@ -112,6 +112,12 @@ type ('nick) context = {
      Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
      ()
 
+   let printelm elements =
+     let element = div ~a:[a_class ["message"]] elements in
+     Eliom_content.Html5.Manip.appendChild %message_area_elt element;
+     Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
+     ()
+
    type operation = unit -> unit Lwt.t
 
    type command = {
@@ -121,13 +127,16 @@ type ('nick) context = {
    }
 
    let cmd_help commands =
-     println ":(";
-     Lwt.return ()
+     commands
+     |> List.map (fun command -> tr [td ~a:[a_class ["command"]] [pcdata command.command];
+                                     td ~a:[a_class ["description"]] [pcdata command.description]])
+     |> (fun tbl -> printelm [table tbl])
+     |> Lwt.return
 
    let rec commands = [
      { command = "help";
        description = "Lists the available commands";
-       operation = fun () -> cmd_help commands }
+       operation = fun () -> cmd_help commands };
    ]
 
    let is_command name cmd = cmd.command = name
