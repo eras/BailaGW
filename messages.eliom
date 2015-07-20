@@ -1,38 +1,7 @@
 open Common
+open Types
 module Sqlexpr = Sqlexpr_sqlite.Make(Sqlexpr_concurrency.Lwt)
 module S = Sqlexpr
-
-{shared{
-type timestamp = string deriving (Json)
-
-type contents =
-  | Text of string
-  | Image of string
-deriving (Json)
-
-type message = {
-  timestamp : timestamp;
-  src       : string;
-  dst       : string;
-  contents  : contents;
-} deriving (Json)
-
-type messages = message list deriving (Json)
-
-type range = (int * int) deriving (Json)
-
-type fragment =
-  | Url of string
-deriving (Json)
-
-type processed_message = {
-  pm_meta    : (range * fragment) list;
-  pm_message : message;
-} deriving (Json)
-
-}}
-
-let bus = Eliom_bus.create ~name:"messages" Json.t<processed_message>
 
 {server{
    let message_db =
@@ -89,8 +58,7 @@ let bus = Eliom_bus.create ~name:"messages" Json.t<processed_message>
       }
 
   let message_to_clients (message : message) =
-    let _ = Eliom_bus.write bus (process_message message) in
-    Lwt.return ()
+    Clients.broadcast (process_message message)
 }}
 
 let all_messages_query = sqlc"SELECT @s{datetime(timestamp, 'localtime')}, @s{src}, @s{dst}, @s{str} FROM message ORDER BY timestamp"

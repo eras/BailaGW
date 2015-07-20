@@ -24,8 +24,9 @@ let input_field_elt, input_area_elt, upload_image_elt =
   in
   input_field_elt, input_area_elt, upload_image_elt
 
-    {shared{
+{shared{
 type ('nick) context = {
+  comet_channel : Types.processed_message Lwt_stream.t;
   image_upload_service :
     (unit,
      Eliom_lib.file_info * (string * string),
@@ -50,7 +51,7 @@ type ('nick) context = {
      unit,
      unit,
      [ Eliom_service.registrable ],
-     Messages.processed_message list Eliom_service.ocaml_service)
+     Types.processed_message list Eliom_service.ocaml_service)
       Eliom_service.service;
   names_service :
     (unit, unit,
@@ -63,8 +64,9 @@ type ('nick) context = {
      [ Eliom_service.registrable ],
      string list Eliom_service.ocaml_service)
       Eliom_service.service;
-  send_add_message : Messages.message -> unit Lwt.t;
+  send_add_message : Types.message -> unit Lwt.t;
   channel          : string;
+  client_id        : string;
   nick             : 'nick;
 }
 }}
@@ -75,20 +77,20 @@ open Eliom_content.Html5.D (* provides functions to create HTML nodes *)
 module To_dom = Eliom_content.Html5.To_dom
 
 let message_with_meta processed =
-  let open Messages in
+  let open Types in
   match processed.pm_message.contents with
   | Text text ->
     let rec scan offset meta =
       match meta with
       | [] ->
         [pcdata (String.sub text offset (String.length text - offset))]
-      | ((ofs, len), Messages.Url url)::rest when ofs = offset ->
+      | ((ofs, len), Url url)::rest when ofs = offset ->
         Raw.a ~a:[a_href url; a_target "_new"] [pcdata url]::scan (ofs + len) rest
       | (((ofs, _ofs1), _)::_) as meta ->
         assert (ofs > offset);
         pcdata (String.sub text offset (ofs - offset))::scan ofs meta
     in
-    scan 0 processed.Messages.pm_meta
+    scan 0 processed.pm_meta
   | Image id ->
     let uri_orig = Eliom_uri.make_string_uri ~absolute:true ~service:%ImageDownload.service (id, 0) in
     let uri_small = Eliom_uri.make_string_uri ~absolute:true ~service:%ImageDownload.service (id, 1) in
@@ -101,15 +103,15 @@ let message_with_meta processed =
       );
     [Raw.a ~a:[a_href uri_orig; a_target "_new"] [img_elt]]
 
-let add_processed_message (processed : Messages.processed_message) =
+let add_processed_message (processed : Types.processed_message) =
   (* let area = Eliom_content.Html5.To_dom.of_p %message_area_elt in *)
   (* let () = area##innerHTML##appendData (Js.string message) in *)
   (* let () = area##innerHTML <- area##innerHTML##concat ((Js.string message)##concat (Js.string " moi ")) in *)
-  let message = processed.Messages.pm_message in
+  let message = processed.Types.pm_message in
   let element =
     div ~a:[a_class ["message"]]
-      [span ~a:[a_class ["src"]] [pcdata message.Messages.src];
-       span ~a:[a_class ["timestamp"]] [pcdata message.Messages.timestamp];
+      [span ~a:[a_class ["src"]] [pcdata message.Types.src];
+       span ~a:[a_class ["timestamp"]] [pcdata message.Types.timestamp];
        span ~a:[a_class ["text"]] (message_with_meta processed)] in
   Eliom_content.Html5.Manip.appendChild %message_area_elt element;
   Eliom_content.Html5.Manip.scrollIntoView ~bottom:true %input_area_elt;
@@ -172,7 +174,7 @@ let process_line context channel nick line =
   if String.length line > 1 && String.sub line 0 1 = "/" then
     Lwt.async (fun () -> process_command context channel nick (String.sub line 1 (String.length line - 1)))
   else
-    Lwt.async (fun () -> context.send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Text line })
+    Lwt.async (fun () -> context.send_add_message Types.{ timestamp = "now"; src = nick; dst = channel; contents = Text line })
 
 let start_backlog ({ image_upload_service; backlog_service; send_add_message; channel; nick } as context) =
   let input_field = To_dom.of_textarea %input_field_elt in
@@ -217,7 +219,7 @@ let start_backlog ({ image_upload_service; backlog_service; send_add_message; ch
   Eliom_client.call_ocaml_service ~service:backlog_service () () >>= fun response ->
   (Eliom_content.Html5.To_dom.of_div %message_area_elt)##style##display <- Js.string "block";
   List.iter add_processed_message response;
-  Lwt.async (fun () -> Lwt_stream.iter add_processed_message (Eliom_bus.stream %Messages.bus));
+  Lwt.async (fun () -> Lwt_stream.iter add_processed_message context.comet_channel);
   Lwt.return ()
 
 let query_nick continue =
@@ -236,9 +238,9 @@ let query_nick continue =
     );
   Lwt.return ()
 
-let init_client {names_service; image_upload_service; backlog_service; send_add_message; channel} =
+let init_client context  =
   Lwt.async (
     fun () ->
-      query_nick (fun nick -> start_backlog {names_service; image_upload_service; backlog_service; send_add_message; channel; nick})
+      query_nick (fun nick -> start_backlog { context with nick })
   )
 }}

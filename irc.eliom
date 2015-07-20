@@ -96,7 +96,7 @@ let irc_connection = ref None
               Lwt_unix.sleep 10.0
             | `Connection None ->
               Printf.eprintf "Failed to get connection\n%!";
-              Messages.message_to_clients Messages.{ timestamp = "now"; src = "BailaGW"; dst = ""; contents = Text "Failed to create connection" } >>= fun () ->
+              Messages.message_to_clients Types.{ timestamp = "now"; src = "BailaGW"; dst = ""; contents = Text "Failed to create connection" } >>= fun () ->
               Lwt_unix.sleep 10.0
             | `Connection (Some connection) ->
               (* add_message { timestamp = "now"; src = "BailaGW"; dst = ""; message = "Connected" } >>= fun () -> *)
@@ -111,7 +111,7 @@ let irc_connection = ref None
                     cur_nick := !cur_nick ^ "_";
                     Irc_client_lwt.send_nick ~connection ~nick:!cur_nick
                   | `Ok { prefix; command = PRIVMSG (dst, text) } ->
-                    let text = Messages.{ timestamp = "now"; src = CCOpt.get "" prefix; dst; contents = Text text } in
+                    let text = Types.{ timestamp = "now"; src = CCOpt.get "" prefix; dst; contents = Text text } in
                     Messages.db_add_message text >>= Messages.message_to_clients
                   | `Ok ({ command = PASS _   } as t)
                   | `Ok ({ command = NICK _   } as t)
