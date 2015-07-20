@@ -98,7 +98,7 @@ let image_upload_service =
        begin Lwt_process.exec ~timeout:10.0 ("/usr/bin/exiftran", args) >>= function
          | Unix.WEXITED 0 -> (* great! *) Lwt.return ()
          | _ -> (* ok, so.. TODO *) Lwt.return ()
-       end;
+       end >>= fun () ->
        let (mime1, mime2) = CCOpt.get ("application", "octetstream") @@ CCOpt.map fst file.Ocsigen_extensions.file_content_type in
        Messages.add_image src dst id (Printf.sprintf "%s/%s" mime1 mime2) 0 >>= fun timestamp ->
        server_add_message `Notice { Messages.src; dst; timestamp; contents = Messages.Image id } >>= fun () ->
