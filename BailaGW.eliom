@@ -92,7 +92,13 @@ let image_upload_service =
        assert (dst = config.Config.c_channel);
        let id = Uuidm.to_string (generate_uuid ()) in
        Printf.eprintf "Image uploaded to %s\n%!" file.Ocsigen_extensions.tmp_filename;
-       Unix.link file.Ocsigen_extensions.tmp_filename (Printf.sprintf "images/%s.%d" id 0);
+       let dst = Printf.sprintf "images/%s.%d" id 0 in
+       Unix.link file.Ocsigen_extensions.tmp_filename dst;
+       let args = [|"exiftran"; "-a"; "-i"; dst|] in
+       begin Lwt_process.exec ~timeout:10.0 ("/usr/bin/exiftran", args) >>= function
+         | Unix.WEXITED 0 -> (* great! *) Lwt.return ()
+         | _ -> (* ok, so.. TODO *) Lwt.return ()
+       end;
        let (mime1, mime2) = CCOpt.get ("application", "octetstream") @@ CCOpt.map fst file.Ocsigen_extensions.file_content_type in
        Messages.add_image src dst id (Printf.sprintf "%s/%s" mime1 mime2) 0 >>= fun timestamp ->
        server_add_message `Notice { Messages.src; dst; timestamp; contents = Messages.Image id } >>= fun () ->
