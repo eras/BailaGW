@@ -8,6 +8,7 @@ type timestamp = string deriving (Json)
 type contents =
   | Text of string
   | Image of string
+  | Join
 deriving (Json)
 
 type message = {
@@ -71,7 +72,8 @@ let bus = Eliom_bus.create ~name:"messages" Json.t<processed_message>
       S.execute message_db sql"INSERT INTO message(src, dst, str) VALUES (%s, %s, %s)" message.src message.dst text >>= fun () ->
       S.select_one message_db sql"SELECT @s{datetime(timestamp, 'localtime')} FROM message WHERE message = last_insert_rowid()" >>= fun timestamp ->
       Lwt.return { message with timestamp = timestamp }
-    | Image _ ->
+    | Image _
+    | Join ->
       Lwt.return message
 
   let process_message message =
@@ -82,7 +84,8 @@ let bus = Eliom_bus.create ~name:"messages" Json.t<processed_message>
         pm_meta    = List.map (fun (range, text) -> (range, Url text)) urls;
         pm_message = { message with contents = Text text };
       }
-    | Image _ ->
+    | Image _
+    | Join ->
       {
         pm_meta    = [];
         pm_message = message;

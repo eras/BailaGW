@@ -51,12 +51,12 @@ let names_service =
              | `Message -> Irc_client_lwt.send_privmsg)
               ~connection
               ~target:message.dst
-              ~message:(message.src ^ "> " ^
-                        match message.contents with
-                        | Text text -> text
+              ~message:(match message.contents with
+                        | Join -> message.src ^ " liittyi kanavalle"
+                        | Text text -> message.src ^ "> " ^ text
                         | Image id ->
                           let uri = Eliom_uri.make_string_uri ~absolute:true ~service:ImageDownload.service (id, 0) in
-                          Printf.sprintf "Image uploaded: %s" uri
+                          message.src ^ "> " ^ Printf.sprintf "Image uploaded: %s" uri
                        )
         )
           (function exn ->

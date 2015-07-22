@@ -113,6 +113,9 @@ let irc_connection = ref None
                   | `Ok { prefix; command = PRIVMSG (dst, text) } ->
                     let text = Messages.{ timestamp = "now"; src = CCOpt.get "" prefix; dst; contents = Text text } in
                     Messages.db_add_message text >>= Messages.message_to_clients
+                  | `Ok { prefix; command = JOIN (channels, _keys) } ->
+                    let text = Messages.{ timestamp = "now"; src = CCOpt.get "" prefix; dst = List.hd channels; contents = Join } in
+                    Messages.db_add_message text >>= Messages.message_to_clients
                   | `Ok ({ command = PASS _   } as t)
                   | `Ok ({ command = NICK _   } as t)
                   | `Ok ({ command = USER _   } as t)
@@ -120,7 +123,6 @@ let irc_connection = ref None
                   | `Ok ({ command = MODE _   } as t)
                   | `Ok ({ command = QUIT _   } as t)
                   | `Ok ({ command = SQUIT _  } as t)
-                  | `Ok ({ command = JOIN _   } as t)
                   | `Ok ({ command = JOIN0    } as t)
                   | `Ok ({ command = PART _   } as t)
                   | `Ok ({ command = TOPIC _  } as t)

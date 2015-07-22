@@ -100,6 +100,8 @@ let message_with_meta processed =
           Js._true
       );
     [Raw.a ~a:[a_href uri_orig; a_target "_new"] [img_elt]]
+  | Join ->
+    [pcdata (processed.pm_message.src ^ " liittyi kanavalle")]
 
 let add_processed_message (processed : Messages.processed_message) =
   (* let area = Eliom_content.Html5.To_dom.of_p %message_area_elt in *)
@@ -218,6 +220,7 @@ let start_backlog ({ backlog_service; channel; nick } as context) =
   (Eliom_content.Html5.To_dom.of_div %message_area_elt)##style##display <- Js.string "block";
   List.iter add_processed_message response;
   Lwt.async (fun () -> Lwt_stream.iter add_processed_message (Eliom_bus.stream %Messages.bus));
+  Lwt.async (fun () -> context.send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Join });
   Lwt.return ()
 
 let query_nick continue =
