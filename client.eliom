@@ -236,9 +236,9 @@ let query_nick continue =
     );
   Lwt.return ()
 
-let init_client {names_service; image_upload_service; backlog_service; send_add_message; channel} =
+let init_client context  =
   Lwt.async (
     fun () ->
-      query_nick (fun nick -> start_backlog {names_service; image_upload_service; backlog_service; send_add_message; channel; nick})
+      query_nick (fun nick -> start_backlog { context with nick })
   )
 }}
