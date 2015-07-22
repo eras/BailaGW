@@ -174,7 +174,7 @@ let process_line context channel nick line =
   else
     Lwt.async (fun () -> context.send_add_message Messages.{ timestamp = "now"; src = nick; dst = channel; contents = Text line })
 
-let start_backlog ({ image_upload_service; backlog_service; send_add_message; channel; nick } as context) =
+let start_backlog ({ backlog_service; channel; nick } as context) =
   let input_field = To_dom.of_textarea %input_field_elt in
   let input_area = To_dom.of_div %input_area_elt in
   let upload_image = To_dom.of_input %upload_image_elt in
