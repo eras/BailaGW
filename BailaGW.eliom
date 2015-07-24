@@ -92,9 +92,9 @@ let image_upload_service =
        assert (dst = config.Config.c_channel);
        let id = Uuidm.to_string (generate_uuid ()) in
        Printf.eprintf "Image uploaded to %s\n%!" file.Ocsigen_extensions.tmp_filename;
-       let dst = Printf.sprintf "images/%s.%d" id 0 in
-       Unix.link file.Ocsigen_extensions.tmp_filename dst;
-       let args = [|"exiftran"; "-a"; "-i"; dst|] in
+       let image_filename = Printf.sprintf "images/%s.%d" id 0 in
+       Unix.link file.Ocsigen_extensions.tmp_filename image_filename;
+       let args = [|"exiftran"; "-a"; "-i"; image_filename|] in
        begin Lwt_process.exec ~timeout:10.0 ("/usr/bin/exiftran", args) >>= function
          | Unix.WEXITED 0 -> (* great! *) Lwt.return ()
          | _ -> (* ok, so.. TODO *) Lwt.return ()
